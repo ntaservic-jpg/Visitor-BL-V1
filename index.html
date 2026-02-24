@@ -180,21 +180,21 @@
       </div>
     </div>
 
-    <div class="col-6">
-  <label class="form-label small fw-bold">ติดต่อเรื่อง</label>
-  <div class="input-group">
-    <input type="text" id="contact_topic" class="form-control form-control-sm" placeholder="พูดหรือพิมพ์...">
-    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="startVoiceRecognition('contact_topic')">
+    <div class="col-12 mb-2">
+  <label class="form-label small fw-bold"><i class="fa-solid fa-comment-dots me-1 text-secondary"></i>ติดต่อเรื่อง</label>
+  <div class="input-group shadow-sm">
+    <input type="text" id="contact_topic" class="form-control" placeholder="พูดหรือพิมพ์รายละเอียดการติดต่อ...">
+    <button class="btn btn-primary px-3" type="button" onclick="startVoiceRecognition('contact_topic')">
       <i class="fa-solid fa-microphone"></i>
     </button>
   </div>
 </div>
 
-<div class="col-6">
-  <label class="form-label small fw-bold">ติดต่อใคร</label>
-  <div class="input-group">
-    <input type="text" id="contact_person" class="form-control form-control-sm" placeholder="พูดหรือพิมพ์...">
-    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="startVoiceRecognition('contact_person')">
+<div class="col-12 mb-2">
+  <label class="form-label small fw-bold"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>ติดต่อใคร</label>
+  <div class="input-group shadow-sm">
+    <input type="text" id="contact_person" class="form-control" placeholder="พูดหรือพิมพ์ชื่อบุคคล/แผนก...">
+    <button class="btn btn-primary px-3" type="button" onclick="startVoiceRecognition('contact_person')">
       <i class="fa-solid fa-microphone"></i>
     </button>
   </div>
@@ -202,14 +202,20 @@
 
     <hr class="my-2 opacity-25">
 
-    <div class="col-7">
-      <label class="form-label small fw-bold">ทะเบียนรถ</label>
-      <input type="text" id="car_plate" class="form-control form-control-sm" placeholder="รอสแกนป้าย...">
-    </div>
-    <div class="col-5">
-      <label class="form-label small fw-bold">จังหวัด</label>
-      <input type="text" id="province" class="form-control form-control-sm" placeholder="...">
-    </div>
+    <div class="col-12 mb-2">
+  <label class="form-label small fw-bold">
+    <i class="fa-solid fa-car-rear me-1 text-primary"></i>ทะเบียนรถ
+  </label>
+  <input type="text" id="car_plate" class="form-control" placeholder="รอสแกนป้ายทะเบียน...">
+</div>
+
+<div class="col-12 mb-2">
+  <label class="form-label small fw-bold">
+    <i class="fa-solid fa-map-location-dot me-1 text-primary"></i>จังหวัด
+  </label>
+  <input type="text" id="province" class="form-control" placeholder="จังหวัดบนป้ายทะเบียน...">
+</div>
+    
     <div class="col-12">
       <label class="form-label small fw-bold text-primary">บาร์โค้ดบัตรติดรถ</label>
       <div class="input-group input-group-sm shadow-sm">
@@ -410,7 +416,6 @@ async function stopBarcodeScanner() {
 }
 
   function startVoiceRecognition(targetId) {
-    // ตรวจสอบว่าเบราว์เซอร์รองรับหรือไม่
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
@@ -419,34 +424,58 @@ async function stopBarcodeScanner() {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH'; // ตั้งค่าเป็นภาษาไทย
+    recognition.lang = 'th-TH';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    // แสดงสถานะว่ากำลังฟังอยู่
+    // สั่นแจ้งเตือนเบาๆ เมื่อเริ่มฟัง (สำหรับ Android)
+    if (navigator.vibrate) navigator.vibrate(50);
+
     Swal.fire({
         title: 'กำลังฟัง...',
         text: 'กรุณาพูดข้อมูลที่ต้องการบันทึก',
         icon: 'info',
+        allowOutsideClick: false, // ป้องกันการกดข้างนอกแล้ว Error
+        showCancelButton: true,
+        cancelButtonText: 'ยกเลิก',
         showConfirmButton: false,
         didOpen: () => {
             recognition.start();
+        }
+    }).then((result) => {
+        // ถ้าผู้ใช้กดปุ่ม Cancel ให้หยุดการฟังทันที
+        if (result.dismiss === Swal.DismissReason.cancel) {
+            recognition.stop();
         }
     });
 
     recognition.onresult = (event) => {
         const speechToText = event.results[0][0].transcript;
-        document.getElementById(targetId).value = speechToText;
-        Swal.close(); // ปิดแจ้งเตือนเมื่อพูดเสร็จ
-        Swal.fire({ icon: 'success', title: 'รับข้อมูลแล้ว', text: speechToText, timer: 1000, showConfirmButton: false });
+        const inputField = document.getElementById(targetId);
+        
+        // ใส่ข้อมูลลงใน Input
+        inputField.value = speechToText;
+        
+        // สั่งให้ Input สั่นเล็กน้อยหรือเน้นสีเพื่อให้รู้ว่ามีการเปลี่ยนแปลง
+        inputField.classList.add('is-valid');
+        setTimeout(() => inputField.classList.remove('is-valid'), 2000);
+
+        Swal.fire({ 
+            icon: 'success', 
+            title: 'รับข้อมูลแล้ว', 
+            text: speechToText, 
+            timer: 1000, 
+            showConfirmButton: false 
+        });
     };
 
     recognition.onerror = (event) => {
         Swal.close();
-        if(event.error === 'not-allowed') {
+        if (event.error === 'not-allowed') {
             Swal.fire('สิทธิ์ถูกปฏิเสธ', 'กรุณาอนุญาตให้เข้าถึงไมโครโฟน', 'warning');
-        } else {
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถรับข้อมูลเสียงได้: ' + event.error, 'error');
+        } else if (event.error === 'no-speech') {
+            // กรณีเปิดไมค์ทิ้งไว้แต่ไม่พูดอะไรเลย
+            Swal.fire('ไม่พบเสียง', 'กรุณาลองกดพูดใหม่อีกครั้ง', 'question');
         }
     };
 
