@@ -192,12 +192,22 @@
         <i class="fa-solid fa-user-plus me-2"></i>เพิ่มเข้ารายการกลุ่ม
       </button>
 
-      <div id="barcode-scanner-container" style="display:none; background: #000; border-radius: 15px; overflow: hidden;" class="mt-3 shadow-lg">
-        <div id="reader" style="width: 100%;"></div>
-        <button class="btn btn-danger btn-sm w-100 rounded-0" onclick="stopBarcodeScanner()">
-          <i class="fa-solid fa-xmark me-2"></i>ยกเลิกการสแกน
-        </button>
+      <div class="modal fade" id="barcodeModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+      <div class="modal-header bg-dark text-white border-0">
+        <h6 class="modal-title fw-bold"><i class="fa-solid fa-barcode me-2"></i>กำลังสแกนบาร์โค้ด...</h6>
+        <button type="button" class="btn-close btn-close-white" onclick="stopBarcodeScanner()"></button>
       </div>
+      <div class="modal-body p-0 bg-black">
+        <div id="reader" style="width: 100%;"></div>
+      </div>
+      <div class="modal-footer bg-light border-0">
+        <button type="button" class="btn btn-secondary w-100 fw-bold" onclick="stopBarcodeScanner()">ปิดหน้าต่างสแกน</button>
+      </div>
+    </div>
+  </div>
+</div>
     </div>
 
     <div class="card glass-card border-0 overflow-hidden">
@@ -304,51 +314,55 @@ async function capture(type) {
     }
 }
 
- async function startBarcodeScanner(targetId) {
-    // 1. เปิด Container แสดงผลสแกนเนอร์
-    document.getElementById('barcode-scanner-container').style.display = 'block';
+// สร้างตัวแปร Modal ไว้ด้านบนสุดของ Script (ต่อจากประกาศตัวแปรอื่นๆ)
+let barcodeModal;
 
-    // 2. ตรวจสอบว่ามีตัวเก่าค้างอยู่ไหม ถ้ามีให้หยุดและล้างทิ้งก่อน (ป้องกันกล้องค้าง)
+async function startBarcodeScanner(targetId) {
+    // เรียกใช้ Bootstrap Modal
+    if (!barcodeModal) {
+        barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
+    }
+    barcodeModal.show();
+
+    // ล้างตัวสแกนเก่าถ้าค้างอยู่
     if (html5QrCode && html5QrCode.isScanning) {
         await html5QrCode.stop();
         html5QrCode.clear();
     }
     
-    // 3. สร้าง Instance ใหม่
     html5QrCode = new Html5Qrcode("reader");
     
-    // 4. เริ่มต้นสแกน
+    // เริ่มสแกน
     html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 150 } }, // ปรับขนาดกรอบให้เหมาะกับบาร์โค้ดแนวนอน
+        { fps: 10, qrbox: { width: 280, height: 150 } }, 
         (text) => {
-            // เมื่อสแกนติด
             document.getElementById(targetId).value = text;
-            stopBarcodeScanner(); // ปิดสแกนเนอร์
+            stopBarcodeScanner(); // ปิด Popup เมื่อสแกนติด
             Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 700, showConfirmButton: false });
         },
-        (errorMessage) => {
-            // ไม่ต้องทำอะไรตรงนี้ (มันจะพ่น error ตลอดเวลาที่หาบาร์โค้ดไม่เจอ)
-        }
+        (errorMessage) => { /* ไม่ต้องจัดการ error ระหว่างหา */ }
     ).catch(err => {
-        console.error("Camera error:", err);
-        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องสำหรับสแกนบาร์โค้ดได้', 'error');
+        console.error(err);
+        barcodeModal.hide();
+        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้', 'error');
     });
 }
 
 async function stopBarcodeScanner() {
     if (html5QrCode) {
         try {
-            // ตรวจสอบว่ากำลังสแกนอยู่ถึงสั่งหยุด
             if (html5QrCode.isScanning) {
                 await html5QrCode.stop();
             }
-            html5QrCode.clear(); // ล้างหน้าจอ
-        } catch (err) {
-            console.log("Stop error:", err);
-        }
+            html5QrCode.clear();
+        } catch (err) { console.log(err); }
     }
-    document.getElementById('barcode-scanner-container').style.display = 'none';
+    
+    // ปิด Modal
+    if (barcodeModal) {
+        barcodeModal.hide();
+    }
 }
 
    function addMemberToList() {
