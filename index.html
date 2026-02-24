@@ -319,67 +319,59 @@ async function capture(type) {
 let barcodeModal;
 
 async function startBarcodeScanner(targetId) {
-    // 1. พักการทำงานของกล้องหลักชั่วคราวเพื่อให้สแกนเนอร์ใช้กล้องได้
+    // 1. ปิดกล้องหลักให้สนิท (สำคัญมากสำหรับ Android/iOS)
     if (currentStream) {
-        currentStream.getTracks().forEach(track => track.enabled = false);
+        currentStream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
     }
 
-    // 2. เรียกใช้ Bootstrap Modal
+    // 2. แสดง Modal
     if (!barcodeModal) {
         barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
     }
     barcodeModal.show();
 
-    // 3. จัดการล้างตัวสแกนเก่า
+    // 3. หน่วงเวลาเล็กน้อยเพื่อให้ Modal กางออกเสร็จก่อนเปิดกล้องสแกนเนอร์
+    setTimeout(async () => {
+        try {
+            if (html5QrCode) {
+                await html5QrCode.clear();
+            }
+            html5QrCode = new Html5Qrcode("reader");
+            
+            await html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 280, height: 160 } }, 
+                (text) => {
+                    document.getElementById(targetId).value = text;
+                    stopBarcodeScanner();
+                    Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 700, showConfirmButton: false });
+                }
+            );
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'ไม่สามารถเข้าถึงกล้องสแกนเนอร์ได้', 'error');
+            stopBarcodeScanner(); // ให้มันกลับไปเปิดกล้องหลักเหมือนเดิม
+        }
+    }, 500);
+}
+
+async function stopBarcodeScanner() {
+    // 1. หยุดสแกนเนอร์
     if (html5QrCode && html5QrCode.isScanning) {
         await html5QrCode.stop();
         html5QrCode.clear();
     }
     
-    // 4. เริ่มสแกนเนอร์
-    html5QrCode = new Html5Qrcode("reader");
-    
-    html5QrCode.start(
-        { facingMode: "environment" }, 
-        { 
-            fps: 15, 
-            qrbox: { width: 280, height: 160 },
-            aspectRatio: 1.777778 // ปรับสัดส่วนให้เหมาะกับบาร์โค้ด
-        }, 
-        (text) => {
-            document.getElementById(targetId).value = text;
-            stopBarcodeScanner(); // ปิดเมื่อสำเร็จ
-            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', text: text, timer: 1000, showConfirmButton: false });
-        },
-        (errorMessage) => { /* ค้นหาต่อไป... */ }
-    ).catch(err => {
-        console.error("Scanner Error:", err);
-        barcodeModal.hide();
-        // คืนค่ากล้องหลักหากสแกนเนอร์เปิดไม่สำเร็จ
-        if (currentStream) currentStream.getTracks().forEach(track => track.enabled = true);
-        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องสำหรับสแกนได้ (อาจถูกกล้องหลักใช้งานอยู่)', 'error');
-    });
-}
-
-async function stopBarcodeScanner() {
-    if (html5QrCode) {
-        try {
-            if (html5QrCode.isScanning) {
-                await html5QrCode.stop();
-            }
-            html5QrCode.clear();
-        } catch (err) { console.log("Stop Error:", err); }
-    }
-    
-    // ปิด Modal
+    // 2. ปิด Modal
     if (barcodeModal) {
         barcodeModal.hide();
     }
 
-    // เปิดการทำงานของกล้องหลักกลับคืนมา
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.enabled = true);
-    }
+    // 3. สั่งเปิดกล้องหลักกลับคืนมา (ฟังก์ชันเดิมของคุณ)
+    setTimeout(() => {
+        startCamera();
+    }, 300);
 }
 
    function addMemberToList() {
