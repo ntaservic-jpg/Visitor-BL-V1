@@ -264,39 +264,69 @@
 
     // คัดลอกเฉพาะฟังก์ชัน capture นี้ไปวางทับของเดิมในไฟล์ HTML ครับ
 async function capture(type) {
-  const ctx = canvas.getContext('2d');
-  const vWidth = video.videoWidth;
-  const vHeight = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    // 1. ดึงขนาดจริง (Native Resolution) จากกล้องโดยตรง ไม่มีการย่อ
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
 
-  // 1. กำหนดขนาดที่เหมาะสม (คงอัตราส่วนสีจริงไว้)
-  // ทะเบียนรถ 640px ก็เพียงพอ บัตรประชาชน 800px กำลังดี
-  canvas.width = (type === 'card') ? 800 : 640;
-  canvas.height = (type === 'card') ? 500 : 360;
+    // 2. ตั้งค่า Canvas ให้เท่ากับขนาดจริงของกล้อง
+    canvas.width = vWidth;
+    canvas.height = vHeight;
 
-  // 2. คำนวณการ Crop
-  const cropWPercent = 0.85; 
-  const cropHPercent = 0.35; 
-  const cropW = vWidth * cropWPercent;
-  const cropH = vHeight * cropHPercent;
-  const startX = (vWidth - cropW) / 2;
-  const startY = (vHeight - cropH) / 2;
+    // 3. วาดภาพสีธรรมชาติแบบ Full Detail (ไม่มีการ Crop สำหรับ Person และ Card)
+    // หมายเหตุ: เฉพาะทะเบียนรถ (plate) จะมีการ Crop เฉพาะส่วนกลางเพื่อความแม่นยำของ AI
+    if (type === 'plate') {
+        const cropW = vWidth * 0.9; // เอาเกือบเต็มความกว้าง
+        const cropH = vHeight * 0.4; // เอาเฉพาะแถบกลาง
+        const startX = (vWidth - cropW) / 2;
+        const startY = (vHeight - cropH) / 2;
+        
+        // สำหรับทะเบียนรถ ปรับ Canvas ให้รองรับส่วนที่ Crop มาแบบไม่เสียความละเอียด
+        canvas.width = cropW;
+        canvas.height = cropH;
+        ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+    } else {
+        // สำหรับรูปคนและบัตรประชาชน: ถ่ายแบบเต็มเฟรม ไม่ตัด ไม่ย่อ
+        ctx.drawImage(video, 0, 0, vWidth, vHeight);
+    }
 
-  // 3. วาดภาพแบบสีธรรมชาติ (ไม่ใช้ Filter)
-  ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+    // 4. บันทึกไฟล์เป็น JPEG คุณภาพสูงสุด (1.0) 
+    // ไฟล์จะมีขนาดใหญ่ (1MB+) แต่จะได้ความชัดเท่าที่กล้องมือถือจะทำได้
+    const base64 = canvas.toDataURL('image/jpeg', 1.0); 
+    
+    const box = document.getElementById('box-' + type);
+    box.classList.add('has-image');
+    box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
 
-  // 4. บีบอัดคุณภาพเหลือ 0.6 (จุดสมดุลระหว่าง "ขนาดไฟล์" กับ "ความชัด")
-  // ขนาดไฟล์จะเหลือเพียง 100-200 KB ส่งไป API ไวมาก
-  const base64 = canvas.toDataURL('image/jpeg', 0.6);
-  
-  const box = document.getElementById('box-' + type);
-  box.classList.add('has-image');
-  box.innerHTML = `<img src="${base64}" id="img-src-${type}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
-  
-  closeCameraModal();
-
-  if (type === 'card' || type === 'plate') {
-    processOCR(base64, type);
-  }
+    // 5. ส่งไปประมวลผล AI
+    if (type === 'card' || type === 'plate') {
+        loader.style.display = 'flex';
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'ocr', image: base64, type: type })
+            });
+            const res = await response.json();
+            if (res.status === "success") {
+                if (type === 'card') {
+                    document.getElementById('id_card').value = res.data.id || "";
+                    document.getElementById('full_name').value = res.data.name || "";
+                } else {
+                    document.getElementById('car_plate').value = res.data.plate || "";
+                    document.getElementById('province').value = res.data.province || "";
+                }
+                Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 1000, showConfirmButton: false });
+            } else {
+                Swal.fire('แจ้งเตือน', 'AI อ่านข้อมูลไม่สำเร็จ กรุณาลองใหม่', 'warning');
+            }
+        } catch (e) {
+            console.error("OCR Error:", e);
+            Swal.fire('Error', 'ไม่สามารถเชื่อมต่อ AI ได้', 'error');
+        } finally {
+            loader.style.display = 'none';
+        }
+    }
 }
 
   async function processOCR(base64, type) {
