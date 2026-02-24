@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ระบบบันทึกข้อมูลผู้ติดต่อ (GitHub Version)</title>
+  <title>ระบบบันทึกข้อมูลผู้ติดต่อ (Optimized)</title>
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -33,34 +33,43 @@
       margin-bottom: 20px;
     }
 
-    #video {
-      width: 100%;
-      border-radius: 15px;
-      background: #000;
-      transform: scaleX(1); /* แก้ไขกรณีกล้องกลับด้าน */
-    }
-
+    /* กล่องพรีวิวรูปภาพ */
     .preview-box {
       width: 100%;
-      height: 120px;
-      border: 2px dashed #dee2e6;
-      border-radius: 15px;
+      aspect-ratio: 1 / 1;
+      border: 2px dashed #ccc;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background-color: #fff;
+      cursor: pointer;
       overflow: hidden;
       position: relative;
-      cursor: pointer;
+      transition: all 0.3s ease;
+      background: #fff;
     }
 
-    .preview-box img { width: 100%; height: 100%; object-fit: cover; }
+    .preview-box.has-image {
+      border-style: solid;
+      border-color: #28a745;
+    }
 
-    .preview-label {
-      position: absolute; bottom: 0; width: 100%;
-      background: rgba(13, 110, 253, 0.8);
-      color: white; font-size: 10px; padding: 2px 0; text-align: center;
+    .preview-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* บังคับรูปเต็มกล่องไม่เบี้ยว */
+    }
+
+    .preview-label-overlay {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 10px;
+      padding: 2px 0;
+      text-align: center;
     }
 
     .loading-overlay {
@@ -70,19 +79,10 @@
       backdrop-filter: blur(5px);
     }
 
-    #video {
-  background-color: #000;
-  /* ปรับความสูงสูงสุดสำหรับมือถือ */
-  max-height: 70vh; 
-}
-
-@media (min-width: 768px) {
-  .position-relative {
-    max-width: 600px; /* ขนาดบนคอมพิวเตอร์ */
-  }
-}
-    
-    #reader { border-radius: 15px; margin-top: 10px; }
+    #video-container {
+      max-width: 500px;
+      width: 100%;
+    }
   </style>
 </head>
 
@@ -102,35 +102,33 @@
     </div>
 
     <div class="card glass-card border-0">
-      <div class="card-body p-3">
-        <div class="position-relative mb-3 mx-auto" style="max-width: 500px; width: 100%;">
-  <div class="ratio ratio-16x9 border rounded overflow-hidden shadow-sm bg-dark">
-    <video id="video" autoplay playsinline style="object-fit: cover; width: 100%; height: 100%;"></video>
-  </div>
-  
-  <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow-sm" 
-          onclick="switchCamera()" style="z-index: 10;">
-    <i class="fa-solid fa-camera-rotate p-1"></i>
-  </button>
-</div>
+      <div class="card-body p-3 text-center">
+        <div id="video-container" class="position-relative mb-3 mx-auto">
+          <div class="ratio ratio-16x9 border rounded overflow-hidden shadow-sm bg-dark">
+            <video id="video" autoplay playsinline style="object-fit: cover; width: 100%; height: 100%;"></video>
+          </div>
+          <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow-sm" onclick="switchCamera()" style="z-index: 10;">
+            <i class="fa-solid fa-camera-rotate p-1"></i>
+          </button>
+        </div>
 
         <div class="row g-2">
           <div class="col-4">
             <div class="preview-box" id="box-person" onclick="capture('person')">
               <i class="fa-solid fa-user-camera fa-2x text-muted"></i>
-              <div class="preview-label">ถ่ายรูปคน</div>
+              <span class="small mt-1 text-muted">รูปคน</span>
             </div>
           </div>
           <div class="col-4">
             <div class="preview-box" id="box-card" onclick="capture('card')">
               <i class="fa-solid fa-id-card fa-2x text-muted"></i>
-              <div class="preview-label">สแกนบัตร</div>
+              <span class="small mt-1 text-muted">สแกนบัตร</span>
             </div>
           </div>
           <div class="col-4">
             <div class="preview-box" id="box-plate" onclick="capture('plate')">
               <i class="fa-solid fa-car-side fa-2x text-muted"></i>
-              <div class="preview-label">สแกนทะเบียน</div>
+              <span class="small mt-1 text-muted">ทะเบียน</span>
             </div>
           </div>
         </div>
@@ -144,19 +142,19 @@
         <input type="hidden" id="vst_id">
         <div class="col-md-6">
           <label class="form-label small fw-bold">เลขบัตรประชาชน</label>
-          <input type="text" id="id_card" class="form-control" placeholder="กรอกหรือถ่ายรูปสแกน...">
+          <input type="text" id="id_card" class="form-control" placeholder="รอสแกน...">
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-bold">ชื่อ-นามสกุล</label>
-          <input type="text" id="full_name" class="form-control" placeholder="กรอกหรือถ่ายรูปสแกน...">
+          <input type="text" id="full_name" class="form-control" placeholder="รอสแกน...">
         </div>
         <div class="col-7">
           <label class="form-label small fw-bold">ทะเบียนรถ</label>
-          <input type="text" id="car_plate" class="form-control" placeholder="กรอกหรือถ่ายรูปสแกน...">
+          <input type="text" id="car_plate" class="form-control" placeholder="รอสแกน...">
         </div>
         <div class="col-5">
           <label class="form-label small fw-bold">จังหวัด</label>
-          <input type="text" id="province" class="form-control" placeholder="กรอกหรือถ่ายรูปสแกน...">
+          <input type="text" id="province" class="form-control" placeholder="...">
         </div>
         <div class="col-12">
           <label class="form-label small fw-bold text-danger">สแกนบาร์โค้ดบัตรติดคน</label>
@@ -181,7 +179,7 @@
 
     <div class="card glass-card border-0 overflow-hidden">
       <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <span class="fw-bold small">รายชื่อที่รอนำเข้า</span>
+        <span class="fw-bold small">รายชื่อรอนำเข้า</span>
         <span id="member-count" class="badge bg-primary">0 คน</span>
       </div>
       <div class="table-responsive">
@@ -192,7 +190,7 @@
     </div>
 
     <button class="btn btn-primary btn-lg w-100 py-3 shadow" onclick="saveAllToSheet()">
-      <i class="fa-solid fa-cloud-arrow-up me-2"></i>บันทึกลงฐานข้อมูล Google
+      <i class="fa-solid fa-cloud-arrow-up me-2"></i>บันทึกข้อมูลทั้งหมด
     </button>
 
   </div>
@@ -200,7 +198,6 @@
   <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
-    // ตรวจสอบ URL ให้ถูกต้อง (Web App URL จาก Google Apps Script)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwI4FKerDuoFJzoKr1DO0Qzcs1XNdvFFXhm1s1u8iyBK2rBjgqqAM3DTYDZXJ3NGF6N7A/exec"; 
 
     const video = document.getElementById('video');
@@ -211,7 +208,6 @@
     let currentStream = null;
     let facingMode = "environment";
 
-    // 1. ระบบกล้อง
     async function startCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
         try {
@@ -220,8 +216,7 @@
             });
             video.srcObject = currentStream;
         } catch (err) { 
-            console.error(err);
-            Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้', 'error'); 
+            Swal.fire('กล้องผิดพลาด', 'กรุณาอนุญาตให้ใช้กล้อง', 'error'); 
         }
     }
 
@@ -230,60 +225,53 @@
         startCamera();
     }
 
-    // 2. ระบบ AI OCR (สแกนบัตร/ทะเบียน)
+    // ฟังก์ชันถ่ายรูปและทำ OCR
     async function capture(type) {
         const ctx = canvas.getContext('2d');
-        // ใช้ความละเอียดสูงเพื่อให้ AI อ่านง่ายขึ้น
         canvas.width = 1280; 
         canvas.height = 720;
         ctx.drawImage(video, 0, 0, 1280, 720);
         const base64 = canvas.toDataURL('image/jpeg', 0.8);
 
-        // แสดงรูปพรีวิวทันที
-        document.getElementById('box-' + type).innerHTML = `<img src="${base64}"><div class="preview-label">${type}</div>`;
+        // แสดงรูปใน Preview Box แบบพอดีเป๊ะ
+        const box = document.getElementById('box-' + type);
+        box.classList.add('has-image');
+        box.innerHTML = `
+            <img src="${base64}">
+            <div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>
+        `;
 
-        // ถ้าเป็นประเภทที่ต้องใช้ OCR
         if (type === 'card' || type === 'plate') {
             loader.style.display = 'flex';
-            
             try {
-                // ส่งข้อมูลไปยัง Google Apps Script
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'cors', // ต้องใช้ cors เพื่อรับค่า JSON กลับมา
-                    cache: 'no-cache',
+                    mode: 'cors',
                     body: JSON.stringify({ action: 'ocr', image: base64, type: type })
                 });
-
                 const res = await response.json();
-
                 if (res.status === "success") {
                     if (type === 'card') {
                         document.getElementById('id_card').value = res.data.id || "";
                         document.getElementById('full_name').value = res.data.name || "";
-                    } else if (type === 'plate') {
+                    } else {
                         document.getElementById('car_plate').value = res.data.plate || "";
                         document.getElementById('province').value = res.data.province || "";
                     }
-                    Swal.fire({ icon: 'success', title: 'ประมวลผลสำเร็จ', timer: 1500, showConfirmButton: false });
-                } else {
-                    throw new Error(res.message || 'AI อ่านค่าไม่ได้');
+                    Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 1000, showConfirmButton: false });
                 }
             } catch (e) { 
-                console.error("OCR Error:", e);
-                Swal.fire('ประมวลผลไม่สำเร็จ', 'AI อ่านค่าไม่ได้หรือการเชื่อมต่อมีปัญหา', 'warning');
+                Swal.fire('OCR Error', 'AI ประมวลผลภาพไม่สำเร็จ', 'warning');
             } finally {
                 loader.style.display = 'none';
             }
         }
     }
 
-    // 3. ระบบ Barcode
     function startBarcodeScanner() {
         document.getElementById('barcode-scanner-container').style.display = 'block';
         html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
-        (text) => {
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
             document.getElementById('badge_id').value = text;
             stopBarcodeScanner();
         }).catch(err => console.error(err));
@@ -297,21 +285,16 @@
         }
     }
 
-    // 4. ระบบจัดการรายชื่อกลุ่ม
     function addMemberToList() {
         const id_card = document.getElementById('id_card').value;
         const full_name = document.getElementById('full_name').value;
         const badge_id = document.getElementById('badge_id').value;
         const person_img = document.querySelector('#box-person img')?.src || '';
 
-        if(!id_card || !badge_id) {
-            return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและสแกนบาร์โค้ด','warning');
-        }
+        if(!id_card || !badge_id) return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและบัตรติดคน','warning');
 
         tempMembers.push({ id_card, full_name, badge_id, person_img });
         renderTable();
-        
-        // ล้างช่องกรอก (ยกเว้นรูปถ่ายคนเผื่อใช้ซ้ำ หรือจะล้างก็ได้)
         ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
     }
 
@@ -319,23 +302,18 @@
         const listBody = document.getElementById('memberList');
         listBody.innerHTML = tempMembers.map((m, i) => `
             <tr>
-                <td><img src="${m.person_img || 'https://via.placeholder.com/35'}" class="rounded-circle" width="35" height="35"></td>
-                <td><b>${m.full_name || 'ไม่ทราบชื่อ'}</b><br><small>${m.id_card}</small></td>
+                <td width="50"><img src="${m.person_img}" class="rounded shadow-sm" width="40" height="40" style="object-fit:cover;"></td>
+                <td><b>${m.full_name || 'ไม่ได้ระบุชื่อ'}</b><br><small class="text-muted">${m.id_card}</small></td>
                 <td class="text-end">
-                    <button class="btn btn-sm text-danger" onclick="tempMembers.splice(${i},1);renderTable()">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
+                    <button class="btn btn-sm text-danger" onclick="tempMembers.splice(${i},1);renderTable()"><i class="fa-solid fa-trash"></i></button>
                 </td>
             </tr>`).join('');
         document.getElementById('member-count').innerText = tempMembers.length + " คน";
     }
 
-    // 5. บันทึกลง Google Sheets
     async function saveAllToSheet() {
-        if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่ออย่างน้อย 1 คน','info');
-        
+        if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่อก่อนบันทึก','info');
         Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
         const payload = {
             action: 'save',
             vst_id: document.getElementById('vst_id').value,
@@ -343,40 +321,21 @@
             province: document.getElementById('province').value,
             members: tempMembers
         };
-
         try {
-            const response = await fetch(SCRIPT_URL, { 
-                method: 'POST', 
-                mode: 'cors',
-                body: JSON.stringify(payload) 
-            });
+            const response = await fetch(SCRIPT_URL, { method: 'POST', mode: 'cors', body: JSON.stringify(payload) });
             const res = await response.json();
             if(res.status === "success") {
-                Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success').then(() => location.reload());
-            } else {
-                throw new Error(res.message);
+                Swal.fire('สำเร็จ', 'บันทึกเรียบร้อย', 'success').then(() => location.reload());
             }
-        } catch (e) { 
-            console.error(e);
-            Swal.fire('Error', 'ไม่สามารถบันทึกได้ กรุณาลองใหม่', 'error'); 
-        }
+        } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
     }
 
-    // เริ่มต้นเมื่อโหลดหน้า
     window.onload = () => {
         startCamera();
-        // ดึง VST ID ถัดไป
-        fetch(SCRIPT_URL + "?action=getNextId")
-            .then(r => r.json())
-            .then(res => {
-                const id = res.id || res; 
-                document.getElementById('vst_id').value = id;
-                document.getElementById('vst_display').innerText = id;
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('vst_display').innerText = "VST-ERR";
-            });
+        fetch(SCRIPT_URL + "?action=getNextId").then(r => r.json()).then(res => {
+            document.getElementById('vst_id').value = res.id;
+            document.getElementById('vst_display').innerText = res.id;
+        });
     };
 </script>
 </body>
