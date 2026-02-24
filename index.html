@@ -12,6 +12,7 @@
   
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
     :root {
@@ -314,38 +315,49 @@ async function capture(type) {
     }
 }
 
-// สร้างตัวแปร Modal ไว้ด้านบนสุดของ Script (ต่อจากประกาศตัวแปรอื่นๆ)
+// เพิ่มการประกาศตัวแปรไว้ด้านบนสุดของสคริปต์
 let barcodeModal;
 
 async function startBarcodeScanner(targetId) {
-    // เรียกใช้ Bootstrap Modal
+    // 1. พักการทำงานของกล้องหลักชั่วคราวเพื่อให้สแกนเนอร์ใช้กล้องได้
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.enabled = false);
+    }
+
+    // 2. เรียกใช้ Bootstrap Modal
     if (!barcodeModal) {
         barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
     }
     barcodeModal.show();
 
-    // ล้างตัวสแกนเก่าถ้าค้างอยู่
+    // 3. จัดการล้างตัวสแกนเก่า
     if (html5QrCode && html5QrCode.isScanning) {
         await html5QrCode.stop();
         html5QrCode.clear();
     }
     
+    // 4. เริ่มสแกนเนอร์
     html5QrCode = new Html5Qrcode("reader");
     
-    // เริ่มสแกน
     html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 280, height: 150 } }, 
+        { 
+            fps: 15, 
+            qrbox: { width: 280, height: 160 },
+            aspectRatio: 1.777778 // ปรับสัดส่วนให้เหมาะกับบาร์โค้ด
+        }, 
         (text) => {
             document.getElementById(targetId).value = text;
-            stopBarcodeScanner(); // ปิด Popup เมื่อสแกนติด
-            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 700, showConfirmButton: false });
+            stopBarcodeScanner(); // ปิดเมื่อสำเร็จ
+            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', text: text, timer: 1000, showConfirmButton: false });
         },
-        (errorMessage) => { /* ไม่ต้องจัดการ error ระหว่างหา */ }
+        (errorMessage) => { /* ค้นหาต่อไป... */ }
     ).catch(err => {
-        console.error(err);
+        console.error("Scanner Error:", err);
         barcodeModal.hide();
-        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้', 'error');
+        // คืนค่ากล้องหลักหากสแกนเนอร์เปิดไม่สำเร็จ
+        if (currentStream) currentStream.getTracks().forEach(track => track.enabled = true);
+        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องสำหรับสแกนได้ (อาจถูกกล้องหลักใช้งานอยู่)', 'error');
     });
 }
 
@@ -356,12 +368,17 @@ async function stopBarcodeScanner() {
                 await html5QrCode.stop();
             }
             html5QrCode.clear();
-        } catch (err) { console.log(err); }
+        } catch (err) { console.log("Stop Error:", err); }
     }
     
     // ปิด Modal
     if (barcodeModal) {
         barcodeModal.hide();
+    }
+
+    // เปิดการทำงานของกล้องหลักกลับคืนมา
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.enabled = true);
     }
 }
 
