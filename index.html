@@ -298,18 +298,45 @@ async function capture(type) {
         }
     }
 
-    function addMemberToList() {
-        const id_card = document.getElementById('id_card').value;
-        const full_name = document.getElementById('full_name').value;
-        const badge_id = document.getElementById('badge_id').value;
-        const person_img = document.querySelector('#box-person img')?.src || '';
+   function addMemberToList() {
+    const id_card = document.getElementById('id_card').value;
+    const full_name = document.getElementById('full_name').value;
+    const badge_id = document.getElementById('badge_id').value;
+    const person_img = document.querySelector('#box-person img')?.src || '';
 
-        if(!id_card || !badge_id) return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและบัตรติดคน','warning');
-
-        tempMembers.push({ id_card, full_name, badge_id, person_img });
-        renderTable();
-        ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
+    // ตรวจสอบข้อมูลจำเป็น
+    if(!id_card || !badge_id) {
+        return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและสแกนบัตรติดคน','warning');
     }
+
+    // เพิ่มข้อมูลลงใน Array รายการกลุ่ม
+    tempMembers.push({ id_card, full_name, badge_id, person_img });
+    
+    // อัปเดตตารางแสดงผล
+    renderTable();
+
+    // --- 1. เคลียร์ข้อมูลใน Input ---
+    ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
+
+    // --- 2. เคลียร์รูปภาพ Preview (Reset กลับเป็น Icon เดิม) ---
+    resetPreviewBox('box-person', '<i class="fa-solid fa-user-camera fa-2x text-muted"></i><span class="small mt-1 text-muted">รูปคน</span>');
+    resetPreviewBox('box-card', '<i class="fa-solid fa-id-card fa-2x text-muted"></i><span class="small mt-1 text-muted">สแกนบัตร</span>');
+
+    Swal.fire({
+        icon: 'success',
+        title: 'เพิ่มรายชื่อสำเร็จ',
+        text: 'คุณสามารถสแกนคนถัดไปได้ทันที',
+        timer: 1000,
+        showConfirmButton: false
+    });
+}
+
+// ฟังก์ชันเสริมสำหรับล้างค่ากล่องพรีวิว
+function resetPreviewBox(boxId, defaultHtml) {
+    const box = document.getElementById(boxId);
+    box.classList.remove('has-image');
+    box.innerHTML = defaultHtml;
+}
 
     function renderTable() {
         const listBody = document.getElementById('memberList');
