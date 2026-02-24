@@ -1,40 +1,69 @@
 <!DOCTYPE html>
-<html lang="th">
-<head>
+<html>
+  <head>
     <base target="_top">
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>เว็บแอป</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        /* 1. รีเซ็ตขอบทั้งหมดให้เป็น 0 */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* 2. บังคับให้ html และ body เต็มจอพอดี ไม่ขาดไม่เกิน */
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden; /* ล็อกหน้าหลักไม่ให้เลื่อน ป้องกันอาการหน้าจอเด้ง */
-            background-color: #ffffff; /* เปลี่ยนสีพื้นหลังตามต้องการ */
-        }
-
-        /* 3. ปรับแต่ง iframe ให้แสดงผลราบรื่น */
-        iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 50px;
+      }
+      button {
+        padding: 15px 25px;
+        font-size: 18px;
+        cursor: pointer;
+        border-radius: 8px;
+        border: none;
+        background-color: #4285f4;
+        color: white;
+      }
+      #result {
+        margin-top: 20px;
+        font-size: 20px;
+        color: #333;
+        width: 80%;
+      }
     </style>
-</head>
-<body>
-    <iframe src="https://script.google.com/macros/s/AKfycbxYOSgZxq6-dC0EUYndVv8ypCX2WjOqrAAQu-DYiftg_mOXrkTXaX9p1rtNYFGpMhv6/exec"></iframe>
-</body>
+  </head>
+  <body>
+
+    <h2>🎤 พูดแล้วแปลงเป็นข้อความ</h2>
+
+    <button onclick="startRecognition()">เริ่มพูด</button>
+
+    <div>
+      <textarea id="result" rows="5" placeholder="ข้อความจะแสดงที่นี่..."></textarea>
+    </div>
+
+   <script>
+async function startRecognition() {
+  try {
+    // ขอสิทธิ์ไมโครโฟนก่อน
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = 'th-TH';
+    recognition.interimResults = false;
+
+    recognition.start();
+
+    recognition.onresult = function(event) {
+      document.getElementById('result').value =
+        event.results[0][0].transcript;
+    };
+
+    recognition.onerror = function(event) {
+      alert("Error type: " + event.error);
+    };
+
+  } catch (err) {
+    alert("Microphone permission denied");
+  }
+}
+</script>
+
+  </body>
 </html>
