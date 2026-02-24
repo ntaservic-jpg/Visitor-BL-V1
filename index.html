@@ -417,29 +417,32 @@ async function stopBarcodeScanner() {
 
   function startVoiceRecognition(targetId) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!SpeechRecognition) {
-        Swal.fire('ขออภัย', 'เบราว์เซอร์ของคุณไม่รองรับการสั่งการด้วยเสียง', 'error');
+        Swal.fire('ขออภัย', 'เบราว์เซอร์ไม่รองรับระบบเสียง', 'error');
         return;
     }
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'th-TH';
-    
-    // --- จุดที่ปรับเปลี่ยน ---
-    recognition.continuous = true;    // เปิดโหมดฟังต่อเนื่อง (ไม่ตัดจบเมื่อหยุดหายใจ)
-    recognition.interimResults = true; // ให้แสดงข้อความขึ้นมาทันทีขณะกำลังพูด
-    // ------------------------
+    recognition.continuous = true;
+    recognition.interimResults = true;
 
+    // เคลียร์ค่าใน Input ก่อนเริ่มพูดใหม่ (หรือจะเก็บไว้ต่อท้ายก็ได้ แต่แนะนำให้เคลียร์เพื่อลดความรวน)
+    const inputField = document.getElementById(targetId);
     let finalTranscript = ''; 
+
     if (navigator.vibrate) navigator.vibrate(50);
 
     Swal.fire({
-        title: 'กำลังฟัง...',
-        html: '<p>กรุณาพูดรายละเอียด...</p><div id="speech-preview" class="text-primary fw-bold"></div>',
-        icon: 'info',
+        title: 'กำลังฟังเสียง...',
+        html: `
+            <div class="p-3 mb-2" style="background: #f8f9fa; border-radius: 10px; min-height: 100px; border: 2px solid #0d6efd;">
+                <div id="speech-preview" class="text-dark fw-bold text-start fs-5" style="line-height: 1.4;">รอพูด...</div>
+            </div>
+            <p class="small text-danger mt-2 fa-beat"><i class="fa-solid fa-microphone me-1"></i> กรุณาพูดรายละเอียด...</p>
+        `,
         allowOutsideClick: false,
-        showConfirmButton: true, // แสดงปุ่มตกลงเพื่อให้ผู้ใช้กดจบการทำงานเองได้
+        showConfirmButton: true,
         confirmButtonText: 'บันทึกข้อมูล',
         showCancelButton: true,
         cancelButtonText: 'ยกเลิก',
@@ -447,46 +450,44 @@ async function stopBarcodeScanner() {
             recognition.start();
         }
     }).then((result) => {
-        recognition.stop(); // หยุดฟังเมื่อกดปุ่มใดๆ ใน Swal
-        if (result.isConfirmed && finalTranscript !== '') {
-            document.getElementById(targetId).value = finalTranscript;
+        recognition.stop();
+        if (result.isConfirmed) {
+            // เมื่อกดบันทึก ให้นำข้อความที่สรุปแล้วไปใส่ในช่อง
+            if (finalTranscript) inputField.value = finalTranscript.trim();
         }
     });
 
     recognition.onresult = (event) => {
         let interimTranscript = '';
+        // ล้างค่า final ก่อนวน loop ใหม่ในแต่ละรอบที่ event ส่งมา เพื่อป้องกันข้อความซ้ำ
+        let currentLoopFinal = ''; 
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
+                currentLoopFinal += event.results[i][0].transcript;
             } else {
                 interimTranscript += event.results[i][0].transcript;
             }
         }
         
-        // แสดงข้อความที่กำลังพูดอยู่บนหน้าจอ (Real-time Preview)
+        // เก็บสะสมข้อความจริงที่พูดจบประโยคแล้ว
+        finalTranscript += currentLoopFinal;
+
         const previewDiv = document.getElementById('speech-preview');
         if (previewDiv) {
-            previewDiv.innerHTML = finalTranscript + '<span class="text-muted">' + interimTranscript + '</span>';
+            // แสดงผล: ข้อความที่เสร็จแล้ว (สีดำ) + ข้อความที่กำลังประมวลผล (สีเทา)
+            previewDiv.innerHTML = `<span class="text-dark">${finalTranscript}</span> <span class="text-muted">${interimTranscript}</span>`;
         }
-        
-        // อัปเดตค่าลงช่อง input ทันที (เผื่อกดปิด Swal)
-        document.getElementById(targetId).value = finalTranscript + interimTranscript;
     };
 
     recognition.onerror = (event) => {
         if (event.error !== 'no-speech') {
-            console.error(event.error);
-            Swal.close();
+            console.error('Speech Error:', event.error);
             recognition.stop();
+            Swal.close();
         }
     };
-    
-    // สั่งให้หยุดทำงานเมื่อพูดจบจริงๆ หรือกดบันทึก
-    recognition.onspeechend = () => {
-        // ในโหมด continuous เราจะไม่สั่ง stop ที่นี่เพื่อให้ฟังต่อได้เรื่อยๆ
-    };
 }
-
    function addMemberToList() {
     const id_card = document.getElementById('id_card').value;
     const full_name = document.getElementById('full_name').value;
