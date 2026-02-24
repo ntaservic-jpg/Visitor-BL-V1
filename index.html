@@ -27,7 +27,7 @@
     .camera-container { position: relative; overflow: hidden; background: #000; }
     .camera-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; z-index: 10; }
     .guide-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 55%; border: 3px solid #ffc107; border-radius: 15px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5); }
-    .guide-plate { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 35%; border: 3px solid #0d6efd; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5); }
+    .guide-plate { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 55%; border: 3px solid #0d6efd; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5); }
 
     .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
   </style>
@@ -267,6 +267,7 @@
       const vWidth = video.videoWidth;
       const vHeight = video.videoHeight;
 
+      // 1. จัดการเรื่องการ Crop รูปภาพตามประเภท
       if (type === 'card' || type === 'plate') {
         const cropWPercent = (type === 'card') ? 0.85 : 0.80;
         const cropHPercent = (type === 'card') ? 0.55 : 0.35;
@@ -286,35 +287,54 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
 
+      // 2. ดึงรูปเป็น Base64
       const base64 = canvas.toDataURL('image/jpeg', 0.6);
+      
+      // 3. แสดงรูปในช่อง Preview ทันที (เพื่อให้ User มั่นใจว่ารูปมาแล้ว)
       const box = document.getElementById('box-' + type);
       box.classList.add('has-image');
       box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
       
+      // 4. ปิดกล้องทันทีเพื่อประหยัดทรัพยากร
       closeCameraModal();
-      if (type === 'card' || type === 'plate') processOCR(base64, type);
+
+      // 5. ส่งไปประมวลผล OCR (สำคัญมาก: ต้องส่งหลังจากแสดงรูปใน Box แล้ว)
+      if (type === 'card' || type === 'plate') {
+        processOCR(base64, type);
+      }
     }
 
-    async function processOCR(base64, type) {
+  async function processOCR(base64, type) {
+      // แสดง Loader ให้ชัดเจนว่า AI กำลังอ่านค่า
       loader.style.display = 'flex';
       try {
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
+          // ไม่ใส่ mode: 'no-cors' เพราะเราต้องการอ่าน JSON ตอบกลับ
           body: JSON.stringify({ action: 'ocr', image: base64, type: type })
         });
+        
         const res = await response.json();
+        
         if (res.status === "success") {
           if (type === 'card') {
+            // มั่นใจว่า ID ของ Input ตรงกับใน HTML
             document.getElementById('id_card').value = res.data.id || "";
             document.getElementById('full_name').value = res.data.name || "";
-          } else {
+          } else if (type === 'plate') {
             document.getElementById('car_plate').value = res.data.plate || "";
             document.getElementById('province').value = res.data.province || "";
           }
-          Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 800, showConfirmButton: false });
+          Swal.fire({ icon: 'success', title: 'AI อ่านข้อมูลสำเร็จ', timer: 1000, showConfirmButton: false });
+        } else {
+          Swal.fire('AI แจ้งเตือน', 'อ่านข้อมูลไม่สำเร็จ กรุณาถ่ายใหม่ให้ชัดเจน', 'warning');
         }
-      } catch (e) { console.error(e); }
-      finally { loader.style.display = 'none'; }
+      } catch (e) { 
+        console.error("OCR Error:", e);
+        Swal.fire('Error', 'การเชื่อมต่อ AI ผิดพลาด', 'error');
+      } finally { 
+        loader.style.display = 'none'; 
+      }
     }
 
     // --- Voice Recognition (ดึงกลับมา) ---
