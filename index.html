@@ -220,38 +220,38 @@
         }
     }
 
-    function switchCamera() {
-        facingMode = (facingMode === "user") ? "environment" : "user";
-        startCamera();
-    }
-
-    // ฟังก์ชันถ่ายรูปและทำ OCR
-    async function capture(type) {
+async function capture(type) {
     const ctx = canvas.getContext('2d');
-    
-    // 1. ดึงขนาดจริงของ Video Stream (ความละเอียดจริงจากเซนเซอร์กล้อง)
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
-    
-    // 2. ตั้งค่า Canvas ให้เท่ากับค่าจริงที่กล้องส่งมา (ภาพจะไม่ถูกบีบหรือยืด)
-    canvas.width = vWidth;
-    canvas.height = vHeight;
-    
-    // 3. วาดภาพลง Canvas ตามสัดส่วนจริง
-    ctx.drawImage(video, 0, 0, vWidth, vHeight);
-    
-    // 4. เพิ่มคุณภาพไฟล์เป็น 0.95 (ลด Noise เพื่อให้ AI เห็นขอบอักษรชัดขึ้น)
-    const base64 = canvas.toDataURL('image/jpeg', 0.95);
 
-    // แสดงรูปใน Preview Box (ใช้ CSS object-fit: cover ช่วยจัดให้สวยงาม)
+    if (type === 'plate') {
+        // --- ส่วนพิเศษสำหรับทะเบียนรถ ---
+        // ตัดภาพเฉพาะกึ่งกลาง (60% ของความกว้างและสูง) เพื่อให้ทะเบียนตัวใหญ่ขึ้น
+        const cropW = vWidth * 0.6; 
+        const cropH = vHeight * 0.4; // ป้ายทะเบียนเป็นแนวนอน เลยตัดให้เตี้ยลงได้
+        const startX = (vWidth - cropW) / 2;
+        const startY = (vHeight - cropH) / 2;
+
+        canvas.width = cropW;
+        canvas.height = cropH;
+
+        // วาดเฉพาะส่วนที่ตัด (Crop)
+        ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+    } else {
+        // สำหรับรูปคนและบัตรประชาชน (ใช้ขนาดเต็มเหมือนเดิมที่เคยอ่านได้)
+        canvas.width = vWidth;
+        canvas.height = vHeight;
+        ctx.drawImage(video, 0, 0, vWidth, vHeight);
+    }
+
+    const base64 = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // แสดงรูปใน Preview Box
     const box = document.getElementById('box-' + type);
     box.classList.add('has-image');
-    box.innerHTML = `
-        <img src="${base64}">
-        <div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>
-    `;
+    box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
 
-    // ส่วนประมวลผล OCR (เหมือนเดิม)
     if (type === 'card' || type === 'plate') {
         loader.style.display = 'flex';
         try {
@@ -261,18 +261,20 @@
                 body: JSON.stringify({ action: 'ocr', image: base64, type: type })
             });
             const res = await response.json();
+            
             if (res.status === "success") {
                 if (type === 'card') {
                     document.getElementById('id_card').value = res.data.id || "";
                     document.getElementById('full_name').value = res.data.name || "";
                 } else {
+                    // ถ้ายังอ่านไม่ได้ ให้ลองดูว่า AI คืนค่าอะไรมา
                     document.getElementById('car_plate').value = res.data.plate || "";
                     document.getElementById('province').value = res.data.province || "";
                 }
                 Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 1000, showConfirmButton: false });
             }
-        } catch (e) { 
-            Swal.fire('OCR Error', 'AI ประมวลผลภาพไม่สำเร็จ', 'warning');
+        } catch (e) {
+            Swal.fire('OCR Error', 'ติดต่อ AI ไม่ได้', 'warning');
         } finally {
             loader.style.display = 'none';
         }
