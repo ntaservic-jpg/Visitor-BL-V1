@@ -297,24 +297,52 @@ async function capture(type) {
     }
 }
 
-   function startBarcodeScanner(targetId) {
+ async function startBarcodeScanner(targetId) {
+    // 1. เปิด Container แสดงผลสแกนเนอร์
     document.getElementById('barcode-scanner-container').style.display = 'block';
-    if (html5QrCode) { html5QrCode.stop(); } // กันการซ้อนทับ
+
+    // 2. ตรวจสอบว่ามีตัวเก่าค้างอยู่ไหม ถ้ามีให้หยุดและล้างทิ้งก่อน (ป้องกันกล้องค้าง)
+    if (html5QrCode && html5QrCode.isScanning) {
+        await html5QrCode.stop();
+        html5QrCode.clear();
+    }
     
+    // 3. สร้าง Instance ใหม่
     html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-        document.getElementById(targetId).value = text;
-        stopBarcodeScanner();
-    }).catch(err => console.error(err));
+    
+    // 4. เริ่มต้นสแกน
+    html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 10, qrbox: { width: 250, height: 150 } }, // ปรับขนาดกรอบให้เหมาะกับบาร์โค้ดแนวนอน
+        (text) => {
+            // เมื่อสแกนติด
+            document.getElementById(targetId).value = text;
+            stopBarcodeScanner(); // ปิดสแกนเนอร์
+            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 700, showConfirmButton: false });
+        },
+        (errorMessage) => {
+            // ไม่ต้องทำอะไรตรงนี้ (มันจะพ่น error ตลอดเวลาที่หาบาร์โค้ดไม่เจอ)
+        }
+    ).catch(err => {
+        console.error("Camera error:", err);
+        Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องสำหรับสแกนบาร์โค้ดได้', 'error');
+    });
 }
 
-    function stopBarcodeScanner() {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('barcode-scanner-container').style.display = 'none';
-            });
+async function stopBarcodeScanner() {
+    if (html5QrCode) {
+        try {
+            // ตรวจสอบว่ากำลังสแกนอยู่ถึงสั่งหยุด
+            if (html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
+            html5QrCode.clear(); // ล้างหน้าจอ
+        } catch (err) {
+            console.log("Stop error:", err);
         }
     }
+    document.getElementById('barcode-scanner-container').style.display = 'none';
+}
 
    function addMemberToList() {
     const id_card = document.getElementById('id_card').value;
