@@ -32,21 +32,29 @@
     const photo = document.getElementById('photo');
 
     // ฟังก์ชันขออนุญาตเข้าถึงกล้อง
-    async function startCamera() {
-        try {
-            // เลือกใช้กล้องหลัง (environment) สำหรับสแกนบัตร/ป้ายทะเบียน
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment" }, 
-                audio: false 
-            });
-            video.srcObject = stream;
-            startBtn.style.display = 'none';
-            captureBtn.style.display = 'inline-block';
-        } catch (err) {
-            console.error("Error accessing camera: ", err);
-            alert("ไม่สามารถเปิดกล้องได้ กรุณาเช็คการอนุญาต (Permissions)");
-        }
+   // เมื่อหน้าเว็บโหลดเสร็จ ให้รันฟังก์ชันเปิดกล้องทันที
+window.addEventListener('DOMContentLoaded', (event) => {
+    startCamera(); // เรียกฟังก์ชันที่เราเขียนไว้
+});
+
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: "environment", // ใช้กล้องหลัง
+                width: { ideal: 1280 },    // กำหนดความละเอียดให้ชัดเพื่ออ่านตัวอักษร
+                height: { ideal: 720 }
+            }, 
+            audio: false 
+        });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+    } catch (err) {
+        console.error("ไม่สามารถเปิดกล้องอัตโนมัติได้:", err);
+        // ถ้าเปิดไม่ได้ (เช่น ติดกฎ Browser) ให้โชว์ปุ่ม "เปิดกล้อง" แทน
+        document.getElementById('start-btn').style.display = 'block';
     }
+}
 
     // ฟังก์ชันถ่ายรูป (Capture) เพื่อเตรียมส่งไป OCR
     captureBtn.addEventListener('click', () => {
