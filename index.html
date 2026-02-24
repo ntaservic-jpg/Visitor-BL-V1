@@ -136,42 +136,58 @@
     </div>
 
     <div class="card glass-card border-0 px-3 py-4">
-      <h5 class="fw-bold text-primary mb-3"><i class="fa-solid fa-pen-to-square me-2"></i>ข้อมูลผู้ติดต่อ</h5>
+      <h5 class="fw-bold text-primary mb-3"><i class="fa-solid fa-pen-to-square me-2"></i>บันทึกข้อมูล</h5>
       
       <div class="row g-3">
         <input type="hidden" id="vst_id">
-        <div class="col-md-6">
-          <label class="form-label small fw-bold">เลขบัตรประชาชน</label>
-          <input type="text" id="id_card" class="form-control" placeholder="รอสแกน...">
+
+        <div class="col-12 p-3 rounded-3" style="background-color: #f0f7ff; border-left: 5px solid #0d6efd;">
+          <small class="fw-bold text-primary d-block mb-2"><i class="fa-solid fa-car me-1"></i> ส่วนที่ 1: ข้อมูลพาหนะ</small>
+          <div class="row g-2">
+            <div class="col-7">
+              <label class="form-label small fw-bold">ทะเบียนรถ</label>
+              <input type="text" id="car_plate" class="form-control" placeholder="รอสแกนป้าย...">
+            </div>
+            <div class="col-5">
+              <label class="form-label small fw-bold">จังหวัด</label>
+              <input type="text" id="province" class="form-control" placeholder="...">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-primary">บาร์โค้ดบัตรติดรถ</label>
+              <div class="input-group shadow-sm">
+                <input type="text" id="barcode_car" class="form-control border-primary" placeholder="สแกนบาร์โค้ดรถ...">
+                <button class="btn btn-primary" onclick="startBarcodeScanner('barcode_car')">
+                  <i class="fa-solid fa-barcode"></i>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label small fw-bold">ชื่อ-นามสกุล</label>
-          <input type="text" id="full_name" class="form-control" placeholder="รอสแกน...">
-        </div>
-        <div class="col-7">
-          <label class="form-label small fw-bold">ทะเบียนรถ</label>
-          <input type="text" id="car_plate" class="form-control" placeholder="รอสแกน...">
-        </div>
-        <div class="col-5">
-          <label class="form-label small fw-bold">จังหวัด</label>
-          <input type="text" id="province" class="form-control" placeholder="...">
-        </div>
-        <div class="col-12">
-          <label class="form-label small fw-bold text-danger">สแกนบาร์โค้ดบัตรติดคน</label>
-          <div class="input-group">
-            <input type="text" id="badge_id" class="form-control border-danger">
-            <button class="btn btn-danger" onclick="startBarcodeScanner()">
-              <i class="fa-solid fa-barcode"></i>
-            </button>
+
+        <div class="col-12 p-3 rounded-3 mt-3" style="background-color: #fff5f5; border-left: 5px solid #dc3545;">
+          <small class="fw-bold text-danger d-block mb-2"><i class="fa-solid fa-user me-1"></i> ส่วนที่ 2: ข้อมูลบุคคล (เพิ่มทีละคน)</small>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">เลขบัตรประชาชน</label>
+              <input type="text" id="id_card" class="form-control" placeholder="รอสแกนบัตร...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">ชื่อ-นามสกุล</label>
+              <input type="text" id="full_name" class="form-control" placeholder="รอสแกนชื่อ...">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-danger">บาร์โค้ดบัตรติดคน</label>
+              <div class="input-group shadow-sm">
+                <input type="text" id="badge_id" class="form-control border-danger" placeholder="สแกนบาร์โค้ดคน...">
+                <button class="btn btn-danger" onclick="startBarcodeScanner('badge_id')">
+                  <i class="fa-solid fa-barcode"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       
-      <div id="barcode-scanner-container" style="display:none;" class="mt-2 text-center">
-        <div id="reader"></div>
-        <button class="btn btn-sm btn-secondary mt-2 w-100" onclick="stopBarcodeScanner()">ปิดสแกนเนอร์</button>
-      </div>
-
       <button class="btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm" onclick="addMemberToList()">
         <i class="fa-solid fa-user-plus me-2"></i>เพิ่มเข้ารายการกลุ่ม
       </button>
@@ -281,14 +297,16 @@ async function capture(type) {
     }
 }
 
-    function startBarcodeScanner() {
-        document.getElementById('barcode-scanner-container').style.display = 'block';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            document.getElementById('badge_id').value = text;
-            stopBarcodeScanner();
-        }).catch(err => console.error(err));
-    }
+   function startBarcodeScanner(targetId) {
+    document.getElementById('barcode-scanner-container').style.display = 'block';
+    if (html5QrCode) { html5QrCode.stop(); } // กันการซ้อนทับ
+    
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+        document.getElementById(targetId).value = text;
+        stopBarcodeScanner();
+    }).catch(err => console.error(err));
+}
 
     function stopBarcodeScanner() {
         if (html5QrCode) {
