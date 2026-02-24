@@ -208,7 +208,7 @@
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwaNIH3RY7-_Jzou9yNSh8Y5e1gknGyJoo0jMqwUOd7SYxDHdFhoJ70IVcTGfpe9ll02g/exec"; 
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysbkbNUxkSpxSEGj5DvyugukwyRB8qHFyeyNvnzWJMM8nmZR7_6UNPavRyDeJLIc53Zw/exec"; 
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const loader = document.getElementById('loader');
@@ -262,55 +262,58 @@
       await startCamera();
     }
 
-    async function capture(type) {
-      const ctx = canvas.getContext('2d');
-      const vWidth = video.videoWidth;
-      const vHeight = video.videoHeight;
+    // คัดลอกเฉพาะฟังก์ชัน capture นี้ไปวางทับของเดิมในไฟล์ HTML ครับ
+async function capture(type) {
+  const ctx = canvas.getContext('2d');
+  const vWidth = video.videoWidth;
+  const vHeight = video.videoHeight;
 
-      // 1. จัดการเรื่องการ Crop รูปภาพตามประเภท
-      if (type === 'card' || type === 'plate') {
-        const cropWPercent = (type === 'card') ? 0.85 : 0.85;
-        const cropHPercent = (type === 'card') ? 0.35 : 0.35;
-        const cropW = vWidth * cropWPercent;
-        const cropH = vHeight * cropHPercent;
-        const startX = (vWidth - cropW) / 2;
-        const startY = (vHeight - cropH) / 2;
+  // 1. กำหนดขนาดที่เหมาะสม (เล็กลงเพื่อความเร็ว แต่ยังอ่านออก)
+  canvas.width = (type === 'card') ? 800 : 600;
+  canvas.height = (type === 'card') ? 500 : 350;
 
-        canvas.width = (type === 'card') ? 800 : 600;
-        canvas.height = (type === 'card') ? 520 : 300;
-        ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, canvas.width, canvas.height);
-      } else {
-        const maxWidth = 800;
-        const scale = maxWidth / vWidth;
-        canvas.width = vWidth > maxWidth ? maxWidth : vWidth;
-        canvas.height = vWidth > maxWidth ? vHeight * scale : vHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
+  // 2. คำนวณการ Crop ตาม Guide Overlay
+  const cropWPercent = 0.85; 
+  const cropHPercent = 0.35; 
+  const cropW = vWidth * cropWPercent;
+  const cropH = vHeight * cropHPercent;
+  const startX = (vWidth - cropW) / 2;
+  const startY = (vHeight - cropH) / 2;
 
-      // 2. ดึงรูปเป็น Base64
-      const base64 = canvas.toDataURL('image/jpeg', 0.6);
-      
-      // 3. แสดงรูปในช่อง Preview ทันที (เพื่อให้ User มั่นใจว่ารูปมาแล้ว)
-      const box = document.getElementById('box-' + type);
-      box.classList.add('has-image');
-      box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
-      
-      // 4. ปิดกล้องทันทีเพื่อประหยัดทรัพยากร
-      closeCameraModal();
+  // วาดรูปลง Canvas
+  ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
-      // 5. ส่งไปประมวลผล OCR (สำคัญมาก: ต้องส่งหลังจากแสดงรูปใน Box แล้ว)
-      if (type === 'card' || type === 'plate') {
-        processOCR(base64, type);
-      }
-    }
+  // 3. ✨ ฟิลเตอร์เพิ่มความเร็วและความแม่น (Grayscale + Contrast)
+  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    let avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+    // เร่ง Contrast ให้ตัวอักษรเข้มขึ้น
+    let contrast = 1.3; 
+    let newVal = 128 + contrast * (avg - 128);
+    data[i] = data[i + 1] = data[i + 2] = newVal;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // 4. ดึงรูปเป็น Base64 (คุณภาพ 0.4 - ช่วยให้ส่งเข้า API ไวขึ้น 3 เท่า)
+  const base64 = canvas.toDataURL('image/jpeg', 0.4);
+  
+  const box = document.getElementById('box-' + type);
+  box.classList.add('has-image');
+  box.innerHTML = `<img src="${base64}" id="img-src-${type}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
+  
+  closeCameraModal();
+
+  if (type === 'card' || type === 'plate') {
+    processOCR(base64, type);
+  }
+}
 
   async function processOCR(base64, type) {
-      // แสดง Loader ให้ชัดเจนว่า AI กำลังอ่านค่า
       loader.style.display = 'flex';
       try {
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
-          // ไม่ใส่ mode: 'no-cors' เพราะเราต้องการอ่าน JSON ตอบกลับ
           body: JSON.stringify({ action: 'ocr', image: base64, type: type })
         });
         
@@ -318,7 +321,6 @@
         
         if (res.status === "success") {
           if (type === 'card') {
-            // มั่นใจว่า ID ของ Input ตรงกับใน HTML
             document.getElementById('id_card').value = res.data.id || "";
             document.getElementById('full_name').value = res.data.name || "";
           } else if (type === 'plate') {
@@ -327,11 +329,11 @@
           }
           Swal.fire({ icon: 'success', title: 'AI อ่านข้อมูลสำเร็จ', timer: 1000, showConfirmButton: false });
         } else {
-          Swal.fire('AI แจ้งเตือน', 'อ่านข้อมูลไม่สำเร็จ กรุณาถ่ายใหม่ให้ชัดเจน', 'warning');
+          Swal.fire('แจ้งเตือน', 'AI อ่านข้อมูลไม่สำเร็จ กรุณาถ่ายใหม่', 'warning');
         }
       } catch (e) { 
         console.error("OCR Error:", e);
-        Swal.fire('Error', 'การเชื่อมต่อ AI ผิดพลาด', 'error');
+        Swal.fire('Error', 'ไม่สามารถเชื่อมต่อ AI ได้', 'error');
       } finally { 
         loader.style.display = 'none'; 
       }
@@ -371,19 +373,33 @@
     }
 
     // --- Member List Logic ---
-    function addMemberToList() {
+  function addMemberToList() {
       const id_card = document.getElementById('id_card').value;
       const full_name = document.getElementById('full_name').value;
       const badge_id = document.getElementById('badge_id').value;
-      const person_img = document.querySelector('#box-person img')?.src || '';
-      const card_img = document.querySelector('#box-card img')?.src || '';
+      
+      // ✅ แก้ไข: อ้างอิง ID ของภาพที่เราสร้างขึ้นในขั้นตอน Capture
+      const personImgObj = document.getElementById('img-src-person');
+      const cardImgObj = document.getElementById('img-src-card');
+      
+      const person_img = personImgObj ? personImgObj.src : '';
+      const card_img = cardImgObj ? cardImgObj.src : '';
 
-      if(!id_card || !badge_id) return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและสแกนบาร์โค้ดคน','warning');
+      if(!id_card || !badge_id || !person_img) {
+          return Swal.fire('ข้อมูลไม่ครบ', 'ต้องมีรูปคน, เลขบัตร และบาร์โค้ด', 'warning');
+      }
 
-      tempMembers.push({ id_card, full_name, badge_id, person_img, card_img });
+      tempMembers.push({ 
+          id_card, 
+          full_name, 
+          badge_id, 
+          person_img, 
+          card_img 
+      });
+      
       renderTable();
 
-      // Reset Member Fields
+      // ล้างค่า
       ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
       resetPreviewBox('box-person', '<i class="fa-solid fa-user-camera fa-2x text-muted"></i><span class="small mt-1 text-muted">รูปคน</span>');
       resetPreviewBox('box-card', '<i class="fa-solid fa-id-card fa-2x text-muted"></i><span class="small mt-1 text-muted">สแกนบัตร</span>');
@@ -391,12 +407,30 @@
 
     function renderTable() {
       const listBody = document.getElementById('memberList');
+      if (tempMembers.length === 0) {
+          listBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">ไม่มีรายชื่อรอนำเข้า</td></tr>';
+          document.getElementById('member-count').innerText = "0 คน";
+          return;
+      }
+
       listBody.innerHTML = tempMembers.map((m, i) => `
-        <tr>
-          <td width="50"><img src="${m.person_img}" class="rounded" width="40" height="40" style="object-fit:cover;"></td>
-          <td><b>${m.full_name || 'ไม่ทราบชื่อ'}</b><br><small>${m.id_card}</small></td>
-          <td class="text-end"><button class="btn btn-sm text-danger" onclick="tempMembers.splice(${i},1);renderTable()"><i class="fa-solid fa-trash"></i></button></td>
+        <tr class="align-middle">
+          <td width="60">
+            <img src="${m.person_img}" class="rounded border shadow-sm" width="50" height="50" style="object-fit:cover;">
+          </td>
+          <td>
+            <div class="fw-bold text-dark">${m.full_name || 'ไม่ทราบชื่อ'}</div>
+            <div class="text-muted" style="font-size: 0.75rem;">
+               <i class="fa-solid fa-id-card-clip me-1"></i>${m.id_card} | <i class="fa-solid fa-barcode me-1"></i>${m.badge_id}
+            </div>
+          </td>
+          <td class="text-end">
+            <button class="btn btn-outline-danger btn-sm border-0" onclick="tempMembers.splice(${i},1);renderTable()">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
         </tr>`).join('');
+      
       document.getElementById('member-count').innerText = tempMembers.length + " คน";
     }
 
