@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ระบบบันทึกข้อมูลผู้ติดต่อ (Optimized Crop)</title>
+  <title>ระบบบันทึกข้อมูลผู้ติดต่อ (Full Version)</title>
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -77,15 +76,15 @@
       <input type="hidden" id="vst_id">
       
       <div class="p-3 rounded-3 mb-3" style="background-color: #fff5f5; border-left: 5px solid #dc3545;">
-        <small class="fw-bold text-danger d-block mb-2">ส่วนที่ 1: ข้อมูลบุคคล</small>
+        <small class="fw-bold text-danger d-block mb-2"><i class="fa-solid fa-user me-1"></i> ส่วนที่ 1: ข้อมูลบุคคล (เพิ่มทีละคน)</small>
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label small fw-bold">เลขบัตรประชาชน</label>
-            <input type="text" id="id_card" class="form-control" placeholder="รอสแกน...">
+            <input type="text" id="id_card" class="form-control" placeholder="รอสแกนบัตร...">
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-bold">ชื่อ-นามสกุล</label>
-            <input type="text" id="full_name" class="form-control" placeholder="รอสแกน...">
+            <input type="text" id="full_name" class="form-control" placeholder="รอสแกนชื่อ...">
           </div>
           <div class="col-12">
             <label class="form-label small fw-bold text-danger">บาร์โค้ดบัตรติดคน</label>
@@ -98,35 +97,62 @@
       </div>
 
       <div class="p-3 rounded-3" style="background-color: #f0f7ff; border-left: 5px solid #0d6efd;">
-        <small class="fw-bold text-primary d-block mb-2">ส่วนที่ 2: การติดต่อและพาหนะ</small>
+        <small class="fw-bold text-primary d-block mb-2"><i class="fa-solid fa-car me-1"></i> ส่วนที่ 2: ข้อมูลการติดต่อและพาหนะ</small>
         <div class="row g-2">
           <div class="col-12 mb-2">
             <label class="form-label small fw-bold">พื้นที่ติดต่อ</label>
             <div class="d-flex gap-2">
               <input type="radio" class="btn-check" name="contact_area" id="area_normal" value="พื้นที่ธรรมดา" checked>
-              <label class="btn btn-outline-primary w-100 btn-sm" for="area_normal">ปกติ</label>
+              <label class="btn btn-outline-primary w-100 btn-sm" for="area_normal">พื้นที่ธรรมดา</label>
               <input type="radio" class="btn-check" name="contact_area" id="area_red" value="พื้นที่สีแดง">
-              <label class="btn btn-outline-danger w-100 btn-sm" for="area_red">สีแดง</label>
+              <label class="btn btn-outline-danger w-100 btn-sm" for="area_red">พื้นที่สีแดง</label>
             </div>
           </div>
+
+          <div class="col-12 mb-2">
+            <label class="form-label small fw-bold">ติดต่อเรื่อง</label>
+            <div class="input-group">
+              <input type="text" id="contact_topic" class="form-control" placeholder="ระบุเรื่องที่ติดต่อ...">
+              <button class="btn btn-primary" onclick="startVoiceRecognition('contact_topic')"><i class="fa-solid fa-microphone"></i></button>
+            </div>
+          </div>
+
+          <div class="col-12 mb-2">
+            <label class="form-label small fw-bold">ติดต่อใคร/แผนก</label>
+            <div class="input-group">
+              <input type="text" id="contact_person" class="form-control" placeholder="ระบุชื่อผู้ติดต่อ...">
+              <button class="btn btn-primary" onclick="startVoiceRecognition('contact_person')"><i class="fa-solid fa-microphone"></i></button>
+            </div>
+          </div>
+
+          <hr class="my-2 opacity-25">
+
           <div class="col-6">
             <label class="form-label small fw-bold">ทะเบียนรถ</label>
             <input type="text" id="car_plate" class="form-control" placeholder="รอสแกน...">
           </div>
           <div class="col-6">
             <label class="form-label small fw-bold">จังหวัด</label>
-            <input type="text" id="province" class="form-control">
+            <input type="text" id="province" class="form-control" placeholder="ระบุจังหวัด...">
+          </div>
+          
+          <div class="col-12 mt-2">
+            <label class="form-label small fw-bold text-primary">บาร์โค้ดบัตรติดรถ</label>
+            <div class="input-group">
+              <input type="text" id="barcode_car" class="form-control border-primary" placeholder="สแกนบาร์โค้ดรถ...">
+              <button class="btn btn-primary" onclick="startBarcodeScanner('barcode_car')"><i class="fa-solid fa-barcode"></i></button>
+            </div>
           </div>
         </div>
       </div>
 
-      <button class="btn btn-warning w-100 mt-4 py-3 fw-bold" onclick="addMemberToList()">
+      <button class="btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm" onclick="addMemberToList()">
         <i class="fa-solid fa-user-plus me-2"></i>เพิ่มเข้ารายการกลุ่ม
       </button>
     </div>
 
     <div class="card glass-card border-0 overflow-hidden">
-      <div class="card-header bg-dark text-white d-flex justify-content-between">
+      <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
         <span class="fw-bold small">รายชื่อรอนำเข้า</span>
         <span id="member-count" class="badge bg-primary">0 คน</span>
       </div>
@@ -154,7 +180,7 @@
           <div id="camera-overlay" class="camera-overlay">
             <div id="guide-box"></div>
           </div>
-          <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle" onclick="switchCamera()" style="z-index: 20;">
+          <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow-sm" onclick="switchCamera()" style="z-index: 20;">
             <i class="fa-solid fa-camera-rotate"></i>
           </button>
         </div>
@@ -171,7 +197,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
         <div class="modal-header bg-dark text-white border-0">
-          <h6 class="modal-title fw-bold">กำลังสแกนบาร์โค้ด...</h6>
+          <h6 class="modal-title fw-bold"><i class="fa-solid fa-barcode me-2"></i>สแกนบาร์โค้ด</h6>
           <button type="button" class="btn-close btn-close-white" onclick="stopBarcodeScanner()"></button>
         </div>
         <div class="modal-body p-0 bg-black"><div id="reader" style="width: 100%;"></div></div>
@@ -192,6 +218,7 @@
     let cameraModalInstance;
     let html5QrCode;
 
+    // --- Camera & Capture ---
     async function startCamera() {
       if (currentStream) currentStream.getTracks().forEach(t => t.stop());
       try {
@@ -199,7 +226,7 @@
           video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
         video.srcObject = currentStream;
-      } catch (err) { Swal.fire('Error', 'ไม่สามารถเปิดกล้องได้', 'error'); }
+      } catch (err) { Swal.fire('Error', 'ไม่สามารถเข้าถึงกล้องได้', 'error'); }
     }
 
     function openCaptureModal(type) {
@@ -241,10 +268,8 @@
       const vHeight = video.videoHeight;
 
       if (type === 'card' || type === 'plate') {
-        // Crop Logic matching the Overlay UI
         const cropWPercent = (type === 'card') ? 0.85 : 0.80;
         const cropHPercent = (type === 'card') ? 0.55 : 0.35;
-
         const cropW = vWidth * cropWPercent;
         const cropH = vHeight * cropHPercent;
         const startX = (vWidth - cropW) / 2;
@@ -267,10 +292,7 @@
       box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
       
       closeCameraModal();
-
-      if (type === 'card' || type === 'plate') {
-        processOCR(base64, type);
-      }
+      if (type === 'card' || type === 'plate') processOCR(base64, type);
     }
 
     async function processOCR(base64, type) {
@@ -289,13 +311,46 @@
             document.getElementById('car_plate').value = res.data.plate || "";
             document.getElementById('province').value = res.data.province || "";
           }
-          Swal.fire({ icon: 'success', title: 'AI ประมวลผลสำเร็จ', timer: 1000, showConfirmButton: false });
+          Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 800, showConfirmButton: false });
         }
       } catch (e) { console.error(e); }
       finally { loader.style.display = 'none'; }
     }
 
-    // --- อื่นๆ (Barcode, Add Member, Save) ---
+    // --- Voice Recognition (ดึงกลับมา) ---
+    function startVoiceRecognition(targetId) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return Swal.fire('Error', 'เบราว์เซอร์ไม่รองรับการพิมพ์ด้วยเสียง', 'error');
+      
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.onresult = (e) => {
+        document.getElementById(targetId).value = e.results[0][0].transcript;
+      };
+      recognition.start();
+      Swal.fire({ title: 'กำลังฟังเสียง...', timer: 2000, showConfirmButton: false });
+    }
+
+    // --- Barcode Scanner ---
+    async function startBarcodeScanner(id) {
+      const modal = new bootstrap.Modal(document.getElementById('barcodeModal'));
+      modal.show();
+      setTimeout(async () => {
+        html5QrCode = new Html5Qrcode("reader");
+        await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
+          document.getElementById(id).value = text;
+          stopBarcodeScanner();
+          modal.hide();
+          Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 600, showConfirmButton: false });
+        });
+      }, 500);
+    }
+
+    async function stopBarcodeScanner() {
+      if (html5QrCode?.isScanning) await html5QrCode.stop();
+    }
+
+    // --- Member List Logic ---
     function addMemberToList() {
       const id_card = document.getElementById('id_card').value;
       const full_name = document.getElementById('full_name').value;
@@ -303,11 +358,12 @@
       const person_img = document.querySelector('#box-person img')?.src || '';
       const card_img = document.querySelector('#box-card img')?.src || '';
 
-      if(!id_card || !badge_id) return Swal.fire('แจ้งเตือน','กรุณาระบุเลขบัตรและสแกนบาร์โค้ดคน','warning');
+      if(!id_card || !badge_id) return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและสแกนบาร์โค้ดคน','warning');
 
       tempMembers.push({ id_card, full_name, badge_id, person_img, card_img });
       renderTable();
 
+      // Reset Member Fields
       ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
       resetPreviewBox('box-person', '<i class="fa-solid fa-user-camera fa-2x text-muted"></i><span class="small mt-1 text-muted">รูปคน</span>');
       resetPreviewBox('box-card', '<i class="fa-solid fa-id-card fa-2x text-muted"></i><span class="small mt-1 text-muted">สแกนบัตร</span>');
@@ -330,16 +386,22 @@
       box.innerHTML = html;
     }
 
+    // --- Final Save ---
     async function saveAllToSheet() {
       if (tempMembers.length === 0) return Swal.fire('แจ้งเตือน', 'กรุณาเพิ่มสมาชิกอย่างน้อย 1 คน', 'warning');
-      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      if (!document.getElementById('car_plate').value) return Swal.fire('แจ้งเตือน', 'กรุณาสแกนทะเบียนรถ', 'warning');
+
+      Swal.fire({ title: 'กำลังบันทึกข้อมูล...', text: 'กรุณารอสักครู่', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
       const payload = {
         action: 'save',
         vst_id: document.getElementById('vst_id').value,
         contact_area: document.querySelector('input[name="contact_area"]:checked').value,
+        contact_topic: document.getElementById('contact_topic').value,
+        contact_person: document.getElementById('contact_person').value,
         car_plate: document.getElementById('car_plate').value,
         province: document.getElementById('province').value,
+        barcode_car: document.getElementById('barcode_car').value,
         plate_img: document.querySelector('#box-plate img')?.src || '',
         members: tempMembers
       };
@@ -348,27 +410,10 @@
         const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         const res = await response.json();
         if (res.status === "success") {
-          await Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+          await Swal.fire('สำเร็จ', 'บันทึกข้อมูลทั้งหมดเรียบร้อยแล้ว', 'success');
           location.reload();
-        }
-      } catch (e) { Swal.fire('Error', 'ไม่สามารถบันทึกได้: ' + e.message, 'error'); }
-    }
-
-    async function startBarcodeScanner(id) {
-      const modal = new bootstrap.Modal(document.getElementById('barcodeModal'));
-      modal.show();
-      setTimeout(async () => {
-        html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
-          document.getElementById(id).value = text;
-          stopBarcodeScanner();
-          modal.hide();
-        });
-      }, 500);
-    }
-
-    async function stopBarcodeScanner() {
-      if (html5QrCode?.isScanning) await html5QrCode.stop();
+        } else { throw new Error(res.message); }
+      } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ: ' + e.message, 'error'); }
     }
 
     window.onload = async () => {
