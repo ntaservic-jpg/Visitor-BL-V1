@@ -141,32 +141,9 @@
       
       <div class="row g-3">
         <input type="hidden" id="vst_id">
-
-        <div class="col-12 p-3 rounded-3" style="background-color: #f0f7ff; border-left: 5px solid #0d6efd;">
-          <small class="fw-bold text-primary d-block mb-2"><i class="fa-solid fa-car me-1"></i> ส่วนที่ 1: ข้อมูลพาหนะ</small>
-          <div class="row g-2">
-            <div class="col-7">
-              <label class="form-label small fw-bold">ทะเบียนรถ</label>
-              <input type="text" id="car_plate" class="form-control" placeholder="รอสแกนป้าย...">
-            </div>
-            <div class="col-5">
-              <label class="form-label small fw-bold">จังหวัด</label>
-              <input type="text" id="province" class="form-control" placeholder="...">
-            </div>
-            <div class="col-12">
-              <label class="form-label small fw-bold text-primary">บาร์โค้ดบัตรติดรถ</label>
-              <div class="input-group shadow-sm">
-                <input type="text" id="barcode_car" class="form-control border-primary" placeholder="สแกนบาร์โค้ดรถ...">
-                <button class="btn btn-primary" onclick="startBarcodeScanner('barcode_car')">
-                  <i class="fa-solid fa-barcode"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        
         <div class="col-12 p-3 rounded-3 mt-3" style="background-color: #fff5f5; border-left: 5px solid #dc3545;">
-          <small class="fw-bold text-danger d-block mb-2"><i class="fa-solid fa-user me-1"></i> ส่วนที่ 2: ข้อมูลบุคคล (เพิ่มทีละคน)</small>
+          <small class="fw-bold text-danger d-block mb-2"><i class="fa-solid fa-user me-1"></i> ส่วนที่ 1: ข้อมูลบุคคล (เพิ่มทีละคน)</small>
           <div class="row g-2">
             <div class="col-md-6">
               <label class="form-label small fw-bold">เลขบัตรประชาชน</label>
@@ -187,6 +164,64 @@
             </div>
           </div>
         </div>
+
+            <div class="col-12 p-3 rounded-3" style="background-color: #f0f7ff; border-left: 5px solid #0d6efd;">
+  <small class="fw-bold text-primary d-block mb-2"><i class="fa-solid fa-car me-1"></i> ส่วนที่ 2: ข้อมูลการติดต่อและพาหนะ</small>
+  
+  <div class="row g-2">
+    <div class="col-12 mb-2">
+      <label class="form-label small fw-bold">พื้นที่ติดต่อ</label>
+      <div class="d-flex gap-2">
+        <input type="radio" class="btn-check" name="contact_area" id="area_normal" value="พื้นที่ธรรมดา" checked>
+        <label class="btn btn-outline-primary w-100 btn-sm" for="area_normal">พื้นที่ธรรมดา</label>
+
+        <input type="radio" class="btn-check" name="contact_area" id="area_red" value="พื้นที่สีแดง">
+        <label class="btn btn-outline-danger w-100 btn-sm" for="area_red">พื้นที่สีแดง</label>
+      </div>
+    </div>
+
+    <div class="col-6">
+  <label class="form-label small fw-bold">ติดต่อเรื่อง</label>
+  <div class="input-group">
+    <input type="text" id="contact_topic" class="form-control form-control-sm" placeholder="พูดหรือพิมพ์...">
+    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="startVoiceRecognition('contact_topic')">
+      <i class="fa-solid fa-microphone"></i>
+    </button>
+  </div>
+</div>
+
+<div class="col-6">
+  <label class="form-label small fw-bold">ติดต่อใคร</label>
+  <div class="input-group">
+    <input type="text" id="contact_person" class="form-control form-control-sm" placeholder="พูดหรือพิมพ์...">
+    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="startVoiceRecognition('contact_person')">
+      <i class="fa-solid fa-microphone"></i>
+    </button>
+  </div>
+</div>
+
+    <hr class="my-2 opacity-25">
+
+    <div class="col-7">
+      <label class="form-label small fw-bold">ทะเบียนรถ</label>
+      <input type="text" id="car_plate" class="form-control form-control-sm" placeholder="รอสแกนป้าย...">
+    </div>
+    <div class="col-5">
+      <label class="form-label small fw-bold">จังหวัด</label>
+      <input type="text" id="province" class="form-control form-control-sm" placeholder="...">
+    </div>
+    <div class="col-12">
+      <label class="form-label small fw-bold text-primary">บาร์โค้ดบัตรติดรถ</label>
+      <div class="input-group input-group-sm shadow-sm">
+        <input type="text" id="barcode_car" class="form-control border-primary" placeholder="สแกนบาร์โค้ดรถ...">
+        <button class="btn btn-primary" onclick="startBarcodeScanner('barcode_car')">
+          <i class="fa-solid fa-barcode"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+        
       </div>
       
       <button class="btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm" onclick="addMemberToList()">
@@ -374,6 +409,52 @@ async function stopBarcodeScanner() {
     }, 300);
 }
 
+  function startVoiceRecognition(targetId) {
+    // ตรวจสอบว่าเบราว์เซอร์รองรับหรือไม่
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        Swal.fire('ขออภัย', 'เบราว์เซอร์ของคุณไม่รองรับการสั่งการด้วยเสียง', 'error');
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH'; // ตั้งค่าเป็นภาษาไทย
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    // แสดงสถานะว่ากำลังฟังอยู่
+    Swal.fire({
+        title: 'กำลังฟัง...',
+        text: 'กรุณาพูดข้อมูลที่ต้องการบันทึก',
+        icon: 'info',
+        showConfirmButton: false,
+        didOpen: () => {
+            recognition.start();
+        }
+    });
+
+    recognition.onresult = (event) => {
+        const speechToText = event.results[0][0].transcript;
+        document.getElementById(targetId).value = speechToText;
+        Swal.close(); // ปิดแจ้งเตือนเมื่อพูดเสร็จ
+        Swal.fire({ icon: 'success', title: 'รับข้อมูลแล้ว', text: speechToText, timer: 1000, showConfirmButton: false });
+    };
+
+    recognition.onerror = (event) => {
+        Swal.close();
+        if(event.error === 'not-allowed') {
+            Swal.fire('สิทธิ์ถูกปฏิเสธ', 'กรุณาอนุญาตให้เข้าถึงไมโครโฟน', 'warning');
+        } else {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถรับข้อมูลเสียงได้: ' + event.error, 'error');
+        }
+    };
+
+    recognition.onspeechend = () => {
+        recognition.stop();
+    };
+}
+
    function addMemberToList() {
     const id_card = document.getElementById('id_card').value;
     const full_name = document.getElementById('full_name').value;
@@ -431,23 +512,21 @@ async function saveAllToSheet() {
     if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่อก่อนบันทึก','info');
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    // เพิ่มการดึงค่าจากช่องบาร์โค้ดรถ
     const payload = {
         action: 'save',
         vst_id: document.getElementById('vst_id').value,
+        // เพิ่มข้อมูลใหม่ 3 อย่างนี้เข้าไป
+        contact_area: document.querySelector('input[name="contact_area"]:checked').value,
+        contact_topic: document.getElementById('contact_topic').value,
+        contact_person: document.getElementById('contact_person').value,
+        
         car_plate: document.getElementById('car_plate').value,
         province: document.getElementById('province').value,
-        barcode_car: document.getElementById('barcode_car').value, // เพิ่มบรรทัดนี้
+        barcode_car: document.getElementById('barcode_car').value,
         members: tempMembers
     };
     
-    try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', mode: 'cors', body: JSON.stringify(payload) });
-        const res = await response.json();
-        if(res.status === "success") {
-            Swal.fire('สำเร็จ', 'บันทึกเรียบร้อย', 'success').then(() => location.reload());
-        }
-    } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
+    // ... โค้ด fetch เดิมของคุณ ...
 }
 
     window.onload = () => {
