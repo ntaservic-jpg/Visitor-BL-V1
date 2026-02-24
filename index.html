@@ -369,24 +369,28 @@ function resetPreviewBox(boxId, defaultHtml) {
         document.getElementById('member-count').innerText = tempMembers.length + " คน";
     }
 
-    async function saveAllToSheet() {
-        if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่อก่อนบันทึก','info');
-        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const payload = {
-            action: 'save',
-            vst_id: document.getElementById('vst_id').value,
-            car_plate: document.getElementById('car_plate').value,
-            province: document.getElementById('province').value,
-            members: tempMembers
-        };
-        try {
-            const response = await fetch(SCRIPT_URL, { method: 'POST', mode: 'cors', body: JSON.stringify(payload) });
-            const res = await response.json();
-            if(res.status === "success") {
-                Swal.fire('สำเร็จ', 'บันทึกเรียบร้อย', 'success').then(() => location.reload());
-            }
-        } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
-    }
+async function saveAllToSheet() {
+    if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่อก่อนบันทึก','info');
+    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    // เพิ่มการดึงค่าจากช่องบาร์โค้ดรถ
+    const payload = {
+        action: 'save',
+        vst_id: document.getElementById('vst_id').value,
+        car_plate: document.getElementById('car_plate').value,
+        province: document.getElementById('province').value,
+        barcode_car: document.getElementById('barcode_car').value, // เพิ่มบรรทัดนี้
+        members: tempMembers
+    };
+    
+    try {
+        const response = await fetch(SCRIPT_URL, { method: 'POST', mode: 'cors', body: JSON.stringify(payload) });
+        const res = await response.json();
+        if(res.status === "success") {
+            Swal.fire('สำเร็จ', 'บันทึกเรียบร้อย', 'success').then(() => location.reload());
+        }
+    } catch (e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
+}
 
     window.onload = () => {
         startCamera();
