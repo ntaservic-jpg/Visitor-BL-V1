@@ -425,62 +425,65 @@ async function stopBarcodeScanner() {
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'th-TH';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    
+    // --- จุดที่ปรับเปลี่ยน ---
+    recognition.continuous = true;    // เปิดโหมดฟังต่อเนื่อง (ไม่ตัดจบเมื่อหยุดหายใจ)
+    recognition.interimResults = true; // ให้แสดงข้อความขึ้นมาทันทีขณะกำลังพูด
+    // ------------------------
 
-    // สั่นแจ้งเตือนเบาๆ เมื่อเริ่มฟัง (สำหรับ Android)
+    let finalTranscript = ''; 
     if (navigator.vibrate) navigator.vibrate(50);
 
     Swal.fire({
         title: 'กำลังฟัง...',
-        text: 'กรุณาพูดข้อมูลที่ต้องการบันทึก',
+        html: '<p>กรุณาพูดรายละเอียด...</p><div id="speech-preview" class="text-primary fw-bold"></div>',
         icon: 'info',
-        allowOutsideClick: false, // ป้องกันการกดข้างนอกแล้ว Error
+        allowOutsideClick: false,
+        showConfirmButton: true, // แสดงปุ่มตกลงเพื่อให้ผู้ใช้กดจบการทำงานเองได้
+        confirmButtonText: 'บันทึกข้อมูล',
         showCancelButton: true,
         cancelButtonText: 'ยกเลิก',
-        showConfirmButton: false,
         didOpen: () => {
             recognition.start();
         }
     }).then((result) => {
-        // ถ้าผู้ใช้กดปุ่ม Cancel ให้หยุดการฟังทันที
-        if (result.dismiss === Swal.DismissReason.cancel) {
-            recognition.stop();
+        recognition.stop(); // หยุดฟังเมื่อกดปุ่มใดๆ ใน Swal
+        if (result.isConfirmed && finalTranscript !== '') {
+            document.getElementById(targetId).value = finalTranscript;
         }
     });
 
     recognition.onresult = (event) => {
-        const speechToText = event.results[0][0].transcript;
-        const inputField = document.getElementById(targetId);
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
         
-        // ใส่ข้อมูลลงใน Input
-        inputField.value = speechToText;
+        // แสดงข้อความที่กำลังพูดอยู่บนหน้าจอ (Real-time Preview)
+        const previewDiv = document.getElementById('speech-preview');
+        if (previewDiv) {
+            previewDiv.innerHTML = finalTranscript + '<span class="text-muted">' + interimTranscript + '</span>';
+        }
         
-        // สั่งให้ Input สั่นเล็กน้อยหรือเน้นสีเพื่อให้รู้ว่ามีการเปลี่ยนแปลง
-        inputField.classList.add('is-valid');
-        setTimeout(() => inputField.classList.remove('is-valid'), 2000);
-
-        Swal.fire({ 
-            icon: 'success', 
-            title: 'รับข้อมูลแล้ว', 
-            text: speechToText, 
-            timer: 1000, 
-            showConfirmButton: false 
-        });
+        // อัปเดตค่าลงช่อง input ทันที (เผื่อกดปิด Swal)
+        document.getElementById(targetId).value = finalTranscript + interimTranscript;
     };
 
     recognition.onerror = (event) => {
-        Swal.close();
-        if (event.error === 'not-allowed') {
-            Swal.fire('สิทธิ์ถูกปฏิเสธ', 'กรุณาอนุญาตให้เข้าถึงไมโครโฟน', 'warning');
-        } else if (event.error === 'no-speech') {
-            // กรณีเปิดไมค์ทิ้งไว้แต่ไม่พูดอะไรเลย
-            Swal.fire('ไม่พบเสียง', 'กรุณาลองกดพูดใหม่อีกครั้ง', 'question');
+        if (event.error !== 'no-speech') {
+            console.error(event.error);
+            Swal.close();
+            recognition.stop();
         }
     };
-
+    
+    // สั่งให้หยุดทำงานเมื่อพูดจบจริงๆ หรือกดบันทึก
     recognition.onspeechend = () => {
-        recognition.stop();
+        // ในโหมด continuous เราจะไม่สั่ง stop ที่นี่เพื่อให้ฟังต่อได้เรื่อยๆ
     };
 }
 
