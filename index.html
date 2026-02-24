@@ -268,11 +268,12 @@ async function capture(type) {
   const vWidth = video.videoWidth;
   const vHeight = video.videoHeight;
 
-  // 1. กำหนดขนาดที่เหมาะสม (เล็กลงเพื่อความเร็ว แต่ยังอ่านออก)
-  canvas.width = (type === 'card') ? 800 : 600;
-  canvas.height = (type === 'card') ? 500 : 350;
+  // 1. กำหนดขนาดที่เหมาะสม (คงอัตราส่วนสีจริงไว้)
+  // ทะเบียนรถ 640px ก็เพียงพอ บัตรประชาชน 800px กำลังดี
+  canvas.width = (type === 'card') ? 800 : 640;
+  canvas.height = (type === 'card') ? 500 : 360;
 
-  // 2. คำนวณการ Crop ตาม Guide Overlay
+  // 2. คำนวณการ Crop
   const cropWPercent = 0.85; 
   const cropHPercent = 0.35; 
   const cropW = vWidth * cropWPercent;
@@ -280,23 +281,12 @@ async function capture(type) {
   const startX = (vWidth - cropW) / 2;
   const startY = (vHeight - cropH) / 2;
 
-  // วาดรูปลง Canvas
+  // 3. วาดภาพแบบสีธรรมชาติ (ไม่ใช้ Filter)
   ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
-  // 3. ✨ ฟิลเตอร์เพิ่มความเร็วและความแม่น (Grayscale + Contrast)
-  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    let avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-    // เร่ง Contrast ให้ตัวอักษรเข้มขึ้น
-    let contrast = 1.3; 
-    let newVal = 128 + contrast * (avg - 128);
-    data[i] = data[i + 1] = data[i + 2] = newVal;
-  }
-  ctx.putImageData(imageData, 0, 0);
-
-  // 4. ดึงรูปเป็น Base64 (คุณภาพ 0.4 - ช่วยให้ส่งเข้า API ไวขึ้น 3 เท่า)
-  const base64 = canvas.toDataURL('image/jpeg', 0.4);
+  // 4. บีบอัดคุณภาพเหลือ 0.6 (จุดสมดุลระหว่าง "ขนาดไฟล์" กับ "ความชัด")
+  // ขนาดไฟล์จะเหลือเพียง 100-200 KB ส่งไป API ไวมาก
+  const base64 = canvas.toDataURL('image/jpeg', 0.6);
   
   const box = document.getElementById('box-' + type);
   box.classList.add('has-image');
