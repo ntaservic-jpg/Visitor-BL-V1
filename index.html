@@ -287,7 +287,7 @@
 
 <script>
     // ใช้ URL ล่าสุดที่คุณส่งมา
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0PTLsbJ_iTfD2h9QmWxOZrAZL6kUK60puS9N28Lj2xSOsmfsl22yLSWfa72dtIfZpVA/exec"; 
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwaNIH3RY7-_Jzou9yNSh8Y5e1gknGyJoo0jMqwUOd7SYxDHdFhoJ70IVcTGfpe9ll02g/exec"; 
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
@@ -348,55 +348,66 @@
     }
 
     // --- 2. ระบบ Capture และ OCR (คงฟังก์ชันเดิมแต่ปรับความเสถียร) ---
-    async function capture(type) {
-        const ctx = canvas.getContext('2d');
-        const vWidth = video.videoWidth;
-        const vHeight = video.videoHeight;
+   async function capture(type) {
+    const ctx = canvas.getContext('2d');
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
 
-        if (type === 'plate') {
-            const cropW = vWidth * 0.8; 
-            const cropH = vHeight * 0.5;
-            const startX = (vWidth - cropW) / 2;
-            const startY = (vHeight - cropH) / 2;
-            canvas.width = cropW;
-            canvas.height = cropH;
-            ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
-        } else {
-            canvas.width = vWidth;
-            canvas.height = vHeight;
-            ctx.drawImage(video, 0, 0, vWidth, vHeight);
-        }
+    // ✅ เพิ่มการ Resize: ปรับให้กว้างไม่เกิน 800px เพื่อลดขนาดไฟล์มหาศาล
+    const maxWidth = 800;
+    const scale = maxWidth / vWidth;
+    const targetWidth = vWidth > maxWidth ? maxWidth : vWidth;
+    const targetHeight = vWidth > maxWidth ? vHeight * scale : vHeight;
 
-        const base64 = canvas.toDataURL('image/jpeg', 0.85);
-        const box = document.getElementById('box-' + type);
-        box.classList.add('has-image');
-        box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
+    if (type === 'plate') {
+        const cropW = vWidth * 0.8; 
+        const cropH = vHeight * 0.5;
+        const startX = (vWidth - cropW) / 2;
+        const startY = (vHeight - cropH) / 2;
+        
+        // สำหรับทะเบียนรถ ใช้ขนาดคงที่เพื่อให้ AI อ่านง่าย
+        canvas.width = 600; 
+        canvas.height = 300;
+        ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, 600, 300);
+    } else {
+        // สำหรับรูปคนและบัตร ย่อขนาดตามสัดส่วน
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+    }
 
-        if (type === 'card' || type === 'plate') {
-            loader.style.display = 'flex';
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'ocr', image: base64, type: type })
-                });
-                const res = await response.json();
-                if (res.status === "success") {
-                    if (type === 'card') {
-                        document.getElementById('id_card').value = res.data.id || "";
-                        document.getElementById('full_name').value = res.data.name || "";
-                    } else {
-                        document.getElementById('car_plate').value = res.data.plate || "";
-                        document.getElementById('province').value = res.data.province || "";
-                    }
-                    Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 800, showConfirmButton: false });
+    // ✅ ปรับคุณภาพเหลือ 0.6 (60%) ขนาดไฟล์จะเล็กลงมาก แต่ยังชัดเจนสำหรับ AI
+    const base64 = canvas.toDataURL('image/jpeg', 0.6); 
+    
+    const box = document.getElementById('box-' + type);
+    box.classList.add('has-image');
+    box.innerHTML = `<img src="${base64}"><div class="preview-label-overlay">${type === 'person' ? 'รูปคน' : (type === 'card' ? 'บัตร' : 'ทะเบียน')}</div>`;
+
+    if (type === 'card' || type === 'plate') {
+        loader.style.display = 'flex';
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'ocr', image: base64, type: type })
+            });
+            const res = await response.json();
+            if (res.status === "success") {
+                if (type === 'card') {
+                    document.getElementById('id_card').value = res.data.id || "";
+                    document.getElementById('full_name').value = res.data.name || "";
+                } else {
+                    document.getElementById('car_plate').value = res.data.plate || "";
+                    document.getElementById('province').value = res.data.province || "";
                 }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                loader.style.display = 'none';
+                Swal.fire({ icon: 'success', title: 'AI สแกนสำเร็จ', timer: 800, showConfirmButton: false });
             }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            loader.style.display = 'none';
         }
     }
+}
 
     // --- 3. ระบบ Barcode และ Voice Recognition (ห้ามหาย) ---
     let barcodeModal;
@@ -436,18 +447,21 @@
     }
 
     // --- 4. ฟังก์ชันการจัดการกลุ่ม (หัวใจสำคัญ) ---
-    function addMemberToList() {
+   function addMemberToList() {
         const id_card = document.getElementById('id_card').value;
         const full_name = document.getElementById('full_name').value;
         const badge_id = document.getElementById('badge_id').value;
         const person_img = document.querySelector('#box-person img')?.src || '';
+        // ✅ ดึงรูปบัตรประชาชนมาเก็บไว้ในตัวแปรของสมาชิกคนนี้
+        const card_img = document.querySelector('#box-card img')?.src || '';
         
         if(!id_card || !badge_id) return Swal.fire('ข้อมูลไม่ครบ','ระบุเลขบัตรและสแกนบัตรติดคน','warning');
         
-        tempMembers.push({ id_card, full_name, badge_id, person_img });
+        // ✅ เก็บ card_img ลงไปใน Object ของสมาชิกด้วย
+        tempMembers.push({ id_card, full_name, badge_id, person_img, card_img });
         renderTable();
         
-        // ล้างเฉพาะข้อมูลคน เพื่อเพิ่มคนต่อไป
+        // ล้างข้อมูลเพื่อเพิ่มคนต่อไป (รวมถึงล้างรูปบัตรด้วย เพราะคนต่อไปจะมีบัตรใหม่)
         ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
         resetPreviewBox('box-person', '<i class="fa-solid fa-user-camera fa-2x text-muted"></i><span class="small mt-1 text-muted">รูปคน</span>');
         resetPreviewBox('box-card', '<i class="fa-solid fa-id-card fa-2x text-muted"></i><span class="small mt-1 text-muted">สแกนบัตร</span>');
@@ -472,35 +486,54 @@
 
     // --- 5. บันทึกทั้งหมดลง Google Sheets ---
     async function saveAllToSheet() {
-        if (tempMembers.length === 0) return Swal.fire('แจ้งเตือน', 'เพิ่มสมาชิกอย่างน้อย 1 คน', 'warning');
-        if (!document.getElementById('car_plate').value) return Swal.fire('แจ้งเตือน', 'กรุณาสแกนทะเบียนรถ', 'warning');
+    if (tempMembers.length === 0) return Swal.fire('แจ้งเตือน', 'เพิ่มสมาชิกอย่างน้อย 1 คน', 'warning');
+    if (!document.getElementById('car_plate').value) return Swal.fire('แจ้งเตือน', 'กรุณาสแกนทะเบียนรถ', 'warning');
 
-        Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ 
+        title: 'กำลังบันทึกข้อมูล...', 
+        text: 'กรุณารอสักครู่ ระบบกำลังอัปโหลดรูปภาพ', // เพิ่ม text ให้ผู้ใช้ทราบ
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
 
-        const payload = {
-            action: 'save',
-            vst_id: document.getElementById('vst_id').value,
-            contact_area: document.querySelector('input[name="contact_area"]:checked').value,
-            contact_topic: document.getElementById('contact_topic').value,
-            contact_person: document.getElementById('contact_person').value,
-            car_plate: document.getElementById('car_plate').value,
-            province: document.getElementById('province').value,
-            barcode_car: document.getElementById('barcode_car').value,
-            plate_img: document.querySelector('#box-plate img')?.src || '',
-            card_img: document.querySelector('#box-card img')?.src || '',
-            members: tempMembers 
-        };
+    const payload = {
+        action: 'save',
+        vst_id: document.getElementById('vst_id').value,
+        contact_area: document.querySelector('input[name="contact_area"]:checked').value,
+        contact_topic: document.getElementById('contact_topic').value,
+        contact_person: document.getElementById('contact_person').value,
+        car_plate: document.getElementById('car_plate').value,
+        province: document.getElementById('province').value,
+        barcode_car: document.getElementById('barcode_car').value,
+        plate_img: document.querySelector('#box-plate img')?.src || '',
+        
+        // ✅ ปรับตรงนี้: ไม่ต้องดึงจากหน้าจอแล้ว เพราะเราล้างรูปบัตรไปแล้วใน addMemberToList
+        // ให้ส่งค่าว่างไป เพื่อให้ Backend รู้ว่าไปดึงจากรายชื่อสมาชิกแทน
+        card_img: '', 
+        
+        members: tempMembers // ข้อมูลสมาชิกแต่ละคนที่มีรูปบัตรอยู่ในนี้แล้ว
+    };
 
-        try {
-            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
-            if (res.status === "success") {
-                await Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: 'เลขที่อ้างอิง: ' + payload.vst_id });
-                location.reload();
-            }
-        } catch (e) {
-            Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error');
+    try {
+        const response = await fetch(SCRIPT_URL, { 
+            method: 'POST', 
+            // ลบ mode: 'no-cors' ออกเพื่อให้ r.json() ทำงานได้
+            body: JSON.stringify(payload) 
+        });
+        
+        const res = await response.json(); // อ่านค่าจาก Google Script
+        
+        if (res.status === "success") {
+            await Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: 'เลขที่อ้างอิง: ' + payload.vst_id });
+            location.reload();
+        } else {
+            throw new Error(res.message); // ถ้าฝั่ง Google Script ส่ง error มาให้เด้งไป catch
         }
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'บันทึกไม่สำเร็จ: ' + e.message, 'error');
     }
+}
 
     // --- 6. ดึง ID เริ่มต้น (ทำเพียงครั้งเดียวเมื่อโหลดหน้า) ---
     window.onload = async () => {
