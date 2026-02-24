@@ -184,6 +184,7 @@
   <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
+    // ตรวจสอบ URL ให้ถูกต้อง (Web App URL จาก Google Apps Script)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxf9hKfDWMN_0UG6lqU9tkvQpIbt50Bqa670zLYylbtgeC3TdMmSKm9M16HaFXKaR2kjg/exec"; 
 
     const video = document.getElementById('video');
@@ -194,142 +195,173 @@
     let currentStream = null;
     let facingMode = "environment";
 
+    // 1. ระบบกล้อง
     async function startCamera() {
-      if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-      try {
-        currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
-        video.srcObject = currentStream;
-      } catch (err) { alert("เข้าถึงกล้องไม่ได้: " + err); }
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } 
+            });
+            video.srcObject = currentStream;
+        } catch (err) { 
+            console.error(err);
+            Swal.fire('กล้องผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้', 'error'); 
+        }
     }
 
     function switchCamera() {
-      facingMode = (facingMode === "user") ? "environment" : "user";
-      startCamera();
+        facingMode = (facingMode === "user") ? "environment" : "user";
+        startCamera();
     }
 
-    // แก้ไขฟังก์ชัน capture ให้รองรับ Error Handling ที่ดีขึ้น
+    // 2. ระบบ AI OCR (สแกนบัตร/ทะเบียน)
     async function capture(type) {
-      const ctx = canvas.getContext('2d');
-      // ขยายภาพก่อนส่งเพื่อให้ OCR อ่านง่ายขึ้น
-      canvas.width = 1280; 
-      canvas.height = 720;
-      ctx.drawImage(video, 0, 0, 1280, 720);
-      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        const ctx = canvas.getContext('2d');
+        // ใช้ความละเอียดสูงเพื่อให้ AI อ่านง่ายขึ้น
+        canvas.width = 1280; 
+        canvas.height = 720;
+        ctx.drawImage(video, 0, 0, 1280, 720);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
 
-      document.getElementById('box-' + type).innerHTML = `<img src="${base64}"><div class="preview-label">${type}</div>`;
+        // แสดงรูปพรีวิวทันที
+        document.getElementById('box-' + type).innerHTML = `<img src="${base64}"><div class="preview-label">${type}</div>`;
 
-      if (type === 'card' || type === 'plate') {
-        loader.style.display = 'flex';
-        
-        try {
-          const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // เพิ่มโหมดนี้หากเจอปัญหา CORS จาก GitHub
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'ocr', image: base64, type: type })
-          });
-          
-          // หมายเหตุ: mode 'no-cors' จะทำให้อ่านค่า JSON ตอบกลับไม่ได้โดยตรง 
-          // หากต้องการอ่านค่า JSON ต้องตั้งค่า Google Script ให้เป็น 'Anyone' และห้ามใช้ no-cors
-          
-          // ถ้าตั้งค่า Google Script ถูกต้องแล้ว ให้ใช้แบบปกติด้านล่างนี้ครับ:
-          const normalResponse = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'ocr', image: base64, type: type })
-          });
-          const res = await normalResponse.json();
+        // ถ้าเป็นประเภทที่ต้องใช้ OCR
+        if (type === 'card' || type === 'plate') {
+            loader.style.display = 'flex';
+            
+            try {
+                // ส่งข้อมูลไปยัง Google Apps Script
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'cors', // ต้องใช้ cors เพื่อรับค่า JSON กลับมา
+                    cache: 'no-cache',
+                    body: JSON.stringify({ action: 'ocr', image: base64, type: type })
+                });
 
-          if (res.status === "success") {
-            if (type === 'card') {
-              document.getElementById('id_card').value = res.data.id || "";
-              document.getElementById('full_name').value = res.data.name || "";
-            } else {
-              document.getElementById('car_plate').value = res.data.plate || "";
-              document.getElementById('province').value = res.data.province || "";
+                const res = await response.json();
+
+                if (res.status === "success") {
+                    if (type === 'card') {
+                        document.getElementById('id_card').value = res.data.id || "";
+                        document.getElementById('full_name').value = res.data.name || "";
+                    } else if (type === 'plate') {
+                        document.getElementById('car_plate').value = res.data.plate || "";
+                        document.getElementById('province').value = res.data.province || "";
+                    }
+                    Swal.fire({ icon: 'success', title: 'ประมวลผลสำเร็จ', timer: 1500, showConfirmButton: false });
+                } else {
+                    throw new Error(res.message || 'AI อ่านค่าไม่ได้');
+                }
+            } catch (e) { 
+                console.error("OCR Error:", e);
+                Swal.fire('ประมวลผลไม่สำเร็จ', 'AI อ่านค่าไม่ได้หรือการเชื่อมต่อมีปัญหา', 'warning');
+            } finally {
+                loader.style.display = 'none';
             }
-            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 1000, showConfirmButton: false });
-          } else {
-            Swal.fire('ข้อผิดพลาด', 'AI ไม่สามารถระบุข้อความได้', 'warning');
-          }
-        } catch (e) { 
-            console.error(e);
-            Swal.fire('Error', 'ไม่สามารถติดต่อ AI ได้ ตรวจสอบ URL ของ Google Script', 'error');
         }
-        loader.style.display = 'none';
-      }
     }
 
+    // 3. ระบบ Barcode
     function startBarcodeScanner() {
-      document.getElementById('barcode-scanner-container').style.display = 'block';
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
-      (text) => {
-        document.getElementById('badge_id').value = text;
-        stopBarcodeScanner();
-      });
+        document.getElementById('barcode-scanner-container').style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
+        (text) => {
+            document.getElementById('badge_id').value = text;
+            stopBarcodeScanner();
+        }).catch(err => console.error(err));
     }
 
     function stopBarcodeScanner() {
-      if (html5QrCode) html5QrCode.stop().then(() => {
-        document.getElementById('barcode-scanner-container').style.display = 'none';
-      });
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('barcode-scanner-container').style.display = 'none';
+            });
+        }
     }
 
+    // 4. ระบบจัดการรายชื่อกลุ่ม
     function addMemberToList() {
-      const data = {
-        id_card: document.getElementById('id_card').value,
-        full_name: document.getElementById('full_name').value,
-        badge_id: document.getElementById('badge_id').value,
-        person_img: document.querySelector('#box-person img')?.src || ''
-      };
-      if(!data.id_card || !data.badge_id) return Swal.fire('เตือน','กรุณาสแกนบัตรและรหัสคน','warning');
-      tempMembers.push(data);
-      renderTable();
-      ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
+        const id_card = document.getElementById('id_card').value;
+        const full_name = document.getElementById('full_name').value;
+        const badge_id = document.getElementById('badge_id').value;
+        const person_img = document.querySelector('#box-person img')?.src || '';
+
+        if(!id_card || !badge_id) {
+            return Swal.fire('ข้อมูลไม่ครบ','กรุณาระบุเลขบัตรและสแกนบาร์โค้ด','warning');
+        }
+
+        tempMembers.push({ id_card, full_name, badge_id, person_img });
+        renderTable();
+        
+        // ล้างช่องกรอก (ยกเว้นรูปถ่ายคนเผื่อใช้ซ้ำ หรือจะล้างก็ได้)
+        ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
     }
 
     function renderTable() {
-      document.getElementById('memberList').innerHTML = tempMembers.map((m, i) => `
-        <tr>
-          <td><img src="${m.person_img}" class="rounded-circle" width="35" height="35"></td>
-          <td><b>${m.full_name}</b><br><small>${m.id_card}</small></td>
-          <td class="text-end"><button class="btn btn-sm text-danger" onclick="tempMembers.splice(${i},1);renderTable()">X</button></td>
-        </tr>`).join('');
-      document.getElementById('member-count').innerText = tempMembers.length + " คน";
+        const listBody = document.getElementById('memberList');
+        listBody.innerHTML = tempMembers.map((m, i) => `
+            <tr>
+                <td><img src="${m.person_img || 'https://via.placeholder.com/35'}" class="rounded-circle" width="35" height="35"></td>
+                <td><b>${m.full_name || 'ไม่ทราบชื่อ'}</b><br><small>${m.id_card}</small></td>
+                <td class="text-end">
+                    <button class="btn btn-sm text-danger" onclick="tempMembers.splice(${i},1);renderTable()">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+        document.getElementById('member-count').innerText = tempMembers.length + " คน";
     }
 
+    // 5. บันทึกลง Google Sheets
     async function saveAllToSheet() {
-      if (tempMembers.length === 0) return Swal.fire('ว่างเปล่า','เพิ่มรายชื่อก่อนครับ','info');
-      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        if (tempMembers.length === 0) return Swal.fire('ไม่มีข้อมูล','กรุณาเพิ่มรายชื่ออย่างน้อย 1 คน','info');
+        
+        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      const payload = {
-        action: 'save',
-        vst_id: document.getElementById('vst_id').value,
-        car_plate: document.getElementById('car_plate').value,
-        province: document.getElementById('province').value,
-        members: tempMembers
-      };
+        const payload = {
+            action: 'save',
+            vst_id: document.getElementById('vst_id').value,
+            car_plate: document.getElementById('car_plate').value,
+            province: document.getElementById('province').value,
+            members: tempMembers
+        };
 
-      try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        const res = await response.json();
-        if(res.status === "success") {
-          Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success').then(() => location.reload());
+        try {
+            const response = await fetch(SCRIPT_URL, { 
+                method: 'POST', 
+                mode: 'cors',
+                body: JSON.stringify(payload) 
+            });
+            const res = await response.json();
+            if(res.status === "success") {
+                Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success').then(() => location.reload());
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (e) { 
+            console.error(e);
+            Swal.fire('Error', 'ไม่สามารถบันทึกได้ กรุณาลองใหม่', 'error'); 
         }
-      } catch (e) { Swal.fire('Error', 'ไม่สามารถบันทึกได้', 'error'); }
     }
 
+    // เริ่มต้นเมื่อโหลดหน้า
     window.onload = () => {
-      startCamera();
-      fetch(SCRIPT_URL + "?action=getNextId")
-        .then(r => r.json()).then(res => {
-          const nextId = res.id || res; // รองรับทั้งแบบ object และ string
-          document.getElementById('vst_id').value = nextId;
-          document.getElementById('vst_display').innerText = nextId;
-        }).catch(err => {
-          document.getElementById('vst_display').innerText = "ERROR-CONN";
-        });
+        startCamera();
+        // ดึง VST ID ถัดไป
+        fetch(SCRIPT_URL + "?action=getNextId")
+            .then(r => r.json())
+            .then(res => {
+                const id = res.id || res; 
+                document.getElementById('vst_id').value = id;
+                document.getElementById('vst_display').innerText = id;
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('vst_display').innerText = "VST-ERR";
+            });
     };
-  </script>
+</script>
 </body>
 </html>
