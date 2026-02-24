@@ -183,8 +183,7 @@
 
   <canvas id="canvas" style="display:none;"></canvas>
 
-  <script>
-    // *** สำคัญ: นำ URL ที่ได้จาก Google Apps Script (Web App) มาวางที่นี่ ***
+<script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxf9hKfDWMN_0UG6lqU9tkvQpIbt50Bqa670zLYylbtgeC3TdMmSKm9M16HaFXKaR2kjg/exec"; 
 
     const video = document.getElementById('video');
@@ -195,7 +194,6 @@
     let currentStream = null;
     let facingMode = "environment";
 
-    // 1. จัดการกล้อง
     async function startCamera() {
       if (currentStream) currentStream.getTracks().forEach(t => t.stop());
       try {
@@ -209,12 +207,13 @@
       startCamera();
     }
 
-    // 2. ถ่ายรูปและส่งไป AI (Google Script)
+    // แก้ไขฟังก์ชัน capture ให้รองรับ Error Handling ที่ดีขึ้น
     async function capture(type) {
       const ctx = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+      // ขยายภาพก่อนส่งเพื่อให้ OCR อ่านง่ายขึ้น
+      canvas.width = 1280; 
+      canvas.height = 720;
+      ctx.drawImage(video, 0, 0, 1280, 720);
       const base64 = canvas.toDataURL('image/jpeg', 0.8);
 
       document.getElementById('box-' + type).innerHTML = `<img src="${base64}"><div class="preview-label">${type}</div>`;
@@ -222,28 +221,44 @@
       if (type === 'card' || type === 'plate') {
         loader.style.display = 'flex';
         
-        // ส่งไปที่ Google Script Web App
         try {
           const response = await fetch(SCRIPT_URL, {
             method: 'POST',
+            mode: 'no-cors', // เพิ่มโหมดนี้หากเจอปัญหา CORS จาก GitHub
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'ocr', image: base64, type: type })
           });
-          const res = await response.json();
+          
+          // หมายเหตุ: mode 'no-cors' จะทำให้อ่านค่า JSON ตอบกลับไม่ได้โดยตรง 
+          // หากต้องการอ่านค่า JSON ต้องตั้งค่า Google Script ให้เป็น 'Anyone' และห้ามใช้ no-cors
+          
+          // ถ้าตั้งค่า Google Script ถูกต้องแล้ว ให้ใช้แบบปกติด้านล่างนี้ครับ:
+          const normalResponse = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'ocr', image: base64, type: type })
+          });
+          const res = await normalResponse.json();
+
           if (res.status === "success") {
             if (type === 'card') {
-              document.getElementById('id_card').value = res.data.id;
-              document.getElementById('full_name').value = res.data.name;
+              document.getElementById('id_card').value = res.data.id || "";
+              document.getElementById('full_name').value = res.data.name || "";
             } else {
-              document.getElementById('car_plate').value = res.data.plate;
-              document.getElementById('province').value = res.data.province;
+              document.getElementById('car_plate').value = res.data.plate || "";
+              document.getElementById('province').value = res.data.province || "";
             }
+            Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ', timer: 1000, showConfirmButton: false });
+          } else {
+            Swal.fire('ข้อผิดพลาด', 'AI ไม่สามารถระบุข้อความได้', 'warning');
           }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e);
+            Swal.fire('Error', 'ไม่สามารถติดต่อ AI ได้ ตรวจสอบ URL ของ Google Script', 'error');
+        }
         loader.style.display = 'none';
       }
     }
 
-    // 3. จัดการ Barcode
     function startBarcodeScanner() {
       document.getElementById('barcode-scanner-container').style.display = 'block';
       html5QrCode = new Html5Qrcode("reader");
@@ -260,7 +275,6 @@
       });
     }
 
-    // 4. บันทึกข้อมูล
     function addMemberToList() {
       const data = {
         id_card: document.getElementById('id_card').value,
@@ -271,7 +285,6 @@
       if(!data.id_card || !data.badge_id) return Swal.fire('เตือน','กรุณาสแกนบัตรและรหัสคน','warning');
       tempMembers.push(data);
       renderTable();
-      // ล้างช่องกรอกคน
       ['id_card','full_name','badge_id'].forEach(id => document.getElementById(id).value = '');
     }
 
@@ -287,29 +300,34 @@
 
     async function saveAllToSheet() {
       if (tempMembers.length === 0) return Swal.fire('ว่างเปล่า','เพิ่มรายชื่อก่อนครับ','info');
-      
       Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
       const payload = {
         action: 'save',
         vst_id: document.getElementById('vst_id').value,
         car_plate: document.getElementById('car_plate').value,
+        province: document.getElementById('province').value,
         members: tempMembers
       };
 
       try {
-        await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success').then(() => location.reload());
-      } catch (e) { Swal.fire('Error', 'เชื่อมต่อ Server ไม่ได้', 'error'); }
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const res = await response.json();
+        if(res.status === "success") {
+          Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success').then(() => location.reload());
+        }
+      } catch (e) { Swal.fire('Error', 'ไม่สามารถบันทึกได้', 'error'); }
     }
 
-    // โหลด ID และเริ่มกล้อง
     window.onload = () => {
       startCamera();
       fetch(SCRIPT_URL + "?action=getNextId")
-        .then(r => r.json()).then(id => {
-          document.getElementById('vst_id').value = id;
-          document.getElementById('vst_display').innerText = id;
+        .then(r => r.json()).then(res => {
+          const nextId = res.id || res; // รองรับทั้งแบบ object และ string
+          document.getElementById('vst_id').value = nextId;
+          document.getElementById('vst_display').innerText = nextId;
+        }).catch(err => {
+          document.getElementById('vst_display').innerText = "ERROR-CONN";
         });
     };
   </script>
